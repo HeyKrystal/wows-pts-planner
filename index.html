@@ -47,11 +47,29 @@
     </header>
 
     <div class="draft-toolbar" role="note">
-      <strong>Draft 4</strong>
+      <strong>Draft 9</strong>
       <span>Resource artwork, schedule, rewards, mission groups, and Simple-mode projection controls are driven by <code>data/pts-config.json</code>.</span>
     </div>
 
     <div id="configError" class="error-panel" hidden></div>
+
+    <details class="rules-panel" open>
+      <summary>
+        <span>Local-Time PTS Schedule</span>
+        <small>Timed windows and Day-Long Missions in your local time</small>
+        <span class="details-indicator" aria-hidden="true">
+          <span class="details-indicator-symbol">
+            <span class="details-indicator-arm details-indicator-arm-left"></span>
+            <span class="details-indicator-arm details-indicator-arm-right"></span>
+          </span>
+        </span>
+      </summary>
+      <div class="details-body">
+        <p class="timezone-note">Timed windows are converted from UTC to <strong id="detectedTimezone">your browser timezone</strong>. Day-Long Missions are shown on the PTS day when they are available.</p>
+        <div id="scheduleReference"></div>
+      </div>
+    </details>
+
 
     <main class="planner-layout" id="appContent" hidden>
       <section class="panel" aria-labelledby="planHeading">
@@ -66,7 +84,13 @@
               <button type="button" data-mode="simple" aria-pressed="true">Simple</button>
               <button type="button" data-mode="advanced" aria-pressed="false">Advanced</button>
             </div>
-            <button class="reset-button" id="resetPlannerButton" type="button">Reset Simple</button>
+            <button class="reset-button" id="resetPlannerButton" type="button"
+              aria-label="Reset only the Simple planner" title="Reset Simple plan">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M20 11a8 8 0 1 0-2.34 5.66" />
+                <path d="M20 4v7h-7" />
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -87,27 +111,11 @@
         <div class="reward-list" id="rewardRows"></div>
         <div class="summary-meta">
           <div class="summary-stat"><span>Timed chains</span><strong id="timedCount">—</strong></div>
-          <div class="summary-stat"><span>Coal captured</span><strong id="captureRate">—</strong></div>
+          <div class="summary-stat"><span>Timed coverage</span><strong id="captureRate">—</strong></div>
         </div>
       </aside>
     </main>
 
-    <details class="rules-panel" open>
-      <summary>
-        <span>Local-Time PTS Schedule</span>
-        <small>Recurring timed windows aligned and converted for your browser</small>
-        <span class="details-indicator" aria-hidden="true">
-          <span class="details-indicator-symbol">
-            <span class="details-indicator-arm details-indicator-arm-left"></span>
-            <span class="details-indicator-arm details-indicator-arm-right"></span>
-          </span>
-        </span>
-      </summary>
-      <div class="details-body">
-        <p class="timezone-note">Times are converted from the UTC schedule in the JSON model to <strong id="detectedTimezone">your browser timezone</strong>. Day headings are the PTS/UTC day; each time cell shows its local weekday when that differs.</p>
-        <div id="scheduleReference"></div>
-      </div>
-    </details>
 
     <details class="rules-panel">
       <summary>
@@ -128,7 +136,7 @@
           </section>
           <section>
             <h3>Intentionally update-agnostic</h3>
-            <p>The exact objective might be Base XP one month and Dockyard progress the next. The planner cares about the repeatable reward slot rather than reproducing every PTS article.</p>
+            <p>The exact objective might be Base XP one month and Dockyard progress the next. The planner cares about the recurring mission and its reward rather than reproducing every PTS article.</p>
           </section>
           <section>
             <h3>First-time rewards excluded</h3>

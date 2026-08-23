@@ -80,7 +80,7 @@
       if (!session.enabled) return;
       const choices = sessionIndex > 0 && session.mirrorSession1 ? sessionOne : session;
 
-      if (choices.login) addReward(result, config.missions.login.reward);
+      addReward(result, config.missions.login.reward);
 
       Object.values(choices.timed).forEach(selected => {
         if (!selected) return;
@@ -97,6 +97,34 @@
     });
 
     return result;
+  }
+
+  function buildAdvancedDefaults(config) {
+    const timedSlots = getTimedSlots(config);
+    const sessions = [];
+
+    for (let sessionIndex = 0; sessionIndex < config.schedule.sessionCount; sessionIndex += 1) {
+      const timed = {};
+      timedSlots.forEach(slot => { timed[slot.key] = false; });
+
+      const groups = {};
+      config.missions.groups.forEach(group => {
+        groups[group.id] = {};
+        group.missions.forEach(mission => {
+          groups[group.id][mission.id] = false;
+        });
+      });
+
+      sessions.push({
+        enabled: config.advancedDefaults?.playSessions ?? true,
+        mirrorSession1:
+          sessionIndex > 0 && (config.advancedDefaults?.mirrorSession1 ?? true),
+        timed,
+        groups
+      });
+    }
+
+    return { sessions };
   }
 
   function buildAdvancedFromSimple(config, simpleState) {
@@ -128,7 +156,6 @@
       sessions.push({
         enabled: simpleState.sessions[sessionIndex] ?? true,
         mirrorSession1: sessionIndex > 0,
-        login: true,
         timed,
         groups
       });
@@ -141,6 +168,7 @@
     calculateSimple,
     calculateAdvanced,
     calculateMaximum,
+    buildAdvancedDefaults,
     buildAdvancedFromSimple,
     getTimedSlots,
     getDisplayWindows,

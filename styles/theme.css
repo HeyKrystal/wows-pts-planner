@@ -49,9 +49,9 @@
   --mission-selected-shadow: rgba(130, 80, 183, 0.18);
 
   /* WoWS resource artwork needs a quiet contrast surface in both themes. */
-  --resource-icon-bg: rgba(68, 32, 79, 0.075);
-  --resource-icon-border: rgba(68, 32, 79, 0.10);
-  --resource-icon-shadow: rgba(68, 32, 79, 0.10);
+  --resource-icon-bg: #a076b3;
+  --resource-icon-border: rgba(84, 51, 98, 0.26);
+  --resource-icon-shadow: rgba(58, 31, 69, 0.24);
 
   --hero-start: #4b285e;
   --hero-end: #7b3e76;
@@ -112,9 +112,9 @@ html[data-theme="dark"] {
   --mission-selected-border: #d094ff;
   --mission-selected-shadow: rgba(208, 148, 255, 0.2);
 
-  --resource-icon-bg: rgba(255, 255, 255, 0.075);
-  --resource-icon-border: rgba(255, 255, 255, 0.09);
-  --resource-icon-shadow: rgba(0, 0, 0, 0.22);
+  --resource-icon-bg: #a076b3;
+  --resource-icon-border: rgba(230, 211, 238, 0.22);
+  --resource-icon-shadow: rgba(0, 0, 0, 0.30);
 
   --hero-start: #311b3b;
   --hero-end: #663355;

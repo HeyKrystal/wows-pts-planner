@@ -1,11 +1,11 @@
 (() => {
   const Calc = window.PTS_CALCULATOR;
   const rateOptions = [
-    { value: 0, label: "Never - 0%" },
-    { value: 0.25, label: "Rarely - 25%" },
-    { value: 0.5, label: "Sometimes - 50%" },
-    { value: 0.75, label: "Usually - 75%" },
-    { value: 1, label: "Always - 100%" }
+    { value: 0, label: "Never — 0%" },
+    { value: 0.25, label: "Rarely — 25%" },
+    { value: 0.5, label: "Sometimes — 50%" },
+    { value: 0.75, label: "Usually — 75%" },
+    { value: 1, label: "Always — 100%" }
   ];
 
   let config = null;
@@ -122,10 +122,28 @@
     end.setUTCHours(endParts.hour, endParts.minute, 0, 0);
     if (end <= start) end.setUTCDate(end.getUTCDate() + 1);
 
-    const timeFormatter = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
-    const weekdayFormatter = new Intl.DateTimeFormat(undefined, { weekday: "short" });
+    const timeFormatter = new Intl.DateTimeFormat(undefined, {
+      hour: "numeric",
+      minute: "2-digit"
+    });
+    const weekdayFormatter = new Intl.DateTimeFormat(undefined, {
+      weekday: "short"
+    });
+    const zoneFormatter = new Intl.DateTimeFormat(undefined, {
+      timeZoneName: "short"
+    });
+
+    function zoneName(date) {
+      return zoneFormatter.formatToParts(date)
+        .find(part => part.type === "timeZoneName")?.value || "local";
+    }
+
+    const startZone = zoneName(start);
+    const endZone = zoneName(end);
+
     return {
       time: `${timeFormatter.format(start)}–${timeFormatter.format(end)}`,
+      zone: startZone === endZone ? startZone : `${startZone}–${endZone}`,
       localDay: weekdayFormatter.format(start),
       endLocalDay: weekdayFormatter.format(end)
     };
@@ -150,18 +168,18 @@
 
     defaults.days ||= {};
     config.schedule.days.forEach(day => {
-      if (defaults.days[day.id] === undefined) defaults.days[day.id] = true;
+      if (defaults.days[day.id] === undefined) defaults.days[day.id] = false;
     });
 
     defaults.windowRates ||= {};
     config.schedule.timedWindowsUtc.forEach(window => {
-      if (defaults.windowRates[window.id] === undefined) defaults.windowRates[window.id] = 1;
+      if (defaults.windowRates[window.id] === undefined) defaults.windowRates[window.id] = 0;
     });
 
     defaults.missionGroupRates ||= {};
     config.missions.groups.forEach(group => {
       if (defaults.missionGroupRates[group.id] === undefined) {
-        defaults.missionGroupRates[group.id] = 1;
+        defaults.missionGroupRates[group.id] = 0;
       }
     });
 
@@ -205,7 +223,7 @@
               ${tooltip(group.simple?.help || group.description || "Exact mission objectives may vary by update.")}
             </span>
             <small class="group-maximum">
-              <span>${group.missions.length} reward slot${group.missions.length === 1 ? "" : "s"} per session</span>
+              <span>${group.missions.length} mission${group.missions.length === 1 ? "" : "s"} per session</span>
               <span class="group-maximum-rewards">${groupRewardHtml(group)} <em>maximum per session</em></span>
             </small>
           </span>
@@ -315,7 +333,7 @@
     }, 0);
 
     return `<div class="mirror-summary">
-      <strong>Mirroring Session 1.</strong> ${timed} timed windows, ${selectedMissions} longer mission rewards, and the same login choice will be used. Uncheck <em>Same as Session 1</em> to restore Session ${sessionIndex + 1}'s independent plan.
+      <strong>Mirroring Session 1.</strong> ${timed} timed windows and ${selectedMissions} longer missions will be used. The Session ${sessionIndex + 1} login reward is included automatically. Uncheck <em>Same as Session 1</em> to restore its independent plan.
     </div>`;
   }
 
@@ -373,11 +391,11 @@
 
     return `
       <div class="advanced-section-label advanced-group-label">
-        <div>
+        <div class="advanced-group-title">
           <h4>${group.label}</h4>
-          <p>${group.description || ""}</p>
+          ${group.description ? tooltip(group.description) : ""}
         </div>
-        <span>${group.missions.length} reward slot${group.missions.length === 1 ? "" : "s"}</span>
+        <span>${group.missions.length} mission${group.missions.length === 1 ? "" : "s"}</span>
       </div>
       <div class="mission-check-grid">${checks}</div>`;
   }
@@ -392,31 +410,31 @@
       </div>
       ${renderTimedGrid(session, sessionIndex)}
 
-      <div class="advanced-section-label advanced-group-label session-reward-heading">
-        <div>
-          <h4>Session login</h4>
-          <p>The recurring login reward for this PTS session.</p>
-        </div>
-        <span>Once per session</span>
-      </div>
-      <div class="mission-check-grid">
-        ${renderMissionCheck(sessionIndex, "login", config.missions.login, Boolean(session.login))}
-      </div>
-
       ${groups}
+
+      <div class="automatic-login">
+        <div class="automatic-login-title">
+          <strong>${config.missions.login.label}</strong>
+          ${tooltip(config.missions.login.description)}
+          <span>Included automatically</span>
+        </div>
+        <div class="automatic-login-reward">
+          ${rewardHtml(config.missions.login.reward, { compact: true })}
+        </div>
+      </div>
     </div>`;
   }
 
   function renderMissionCheck(sessionIndex, groupId, mission, selected) {
-    const attribute = groupId === "login"
-      ? `data-advanced-login="${sessionIndex}"`
-      : `data-advanced-group="${sessionIndex}|${groupId}|${mission.id}"`;
+    const attribute = `data-advanced-group="${sessionIndex}|${groupId}|${mission.id}"`;
 
     return `<label class="mission-check ${selected ? "selected" : ""}">
       <input type="checkbox" ${attribute} ${selected ? "checked" : ""}>
       <span class="mission-check-title">
-        <strong>${mission.label}</strong>
-        <small>${mission.description || ""}</small>
+        <span class="mission-title-with-help">
+          <strong>${mission.label}</strong>
+          ${mission.description ? tooltip(mission.description) : ""}
+        </span>
       </span>
       <span class="reward-chip">${rewardHtml(mission.reward, { compact: true })}</span>
     </label>`;
@@ -450,13 +468,6 @@
       return;
     }
 
-    if (element.dataset.advancedLogin !== undefined) {
-      advancedState.sessions[Number(element.dataset.advancedLogin)].login = element.checked;
-      element.closest(".mission-check")?.classList.toggle("selected", element.checked);
-      refreshMirrorSummaries();
-      recalculate();
-      return;
-    }
 
     if (element.dataset.advancedGroup) {
       const [sessionIndex, groupId, missionId] = element.dataset.advancedGroup.split("|");
@@ -482,25 +493,29 @@
     host.innerHTML = config.resources.map(resource => {
       const value = result[resource.id] || 0;
       const maxValue = maximum[resource.id] || 0;
+      const resourcePercent = maxValue ? Math.round(percent(value, maxValue)) : 0;
       return `<div class="reward-row">
         <div class="reward-heading">
           <span class="reward-resource-label">
             ${resourceIcon(resource, "summary-resource-icon")}
             <span>${resource.label}</span>
           </span>
-          <strong>${formatResource(resource, value)}<small> / ${formatResource(resource, maxValue)}</small></strong>
+          <span class="reward-value-group">
+            <strong>${formatResource(resource, value)}<small> / ${formatResource(resource, maxValue)}</small></strong>
+            <b>${resourcePercent}%</b>
+          </span>
         </div>
-        <div class="reward-track"><span style="width:${percent(value, maxValue)}%"></span></div>
+        <div class="reward-track" aria-label="${resourcePercent}% of maximum ${resource.label}">
+          <span style="width:${resourcePercent}%"></span>
+        </div>
       </div>`;
     }).join("");
 
     const maxTimed = Calc.maximumTimedCompletions(config);
     document.querySelector("#timedCount").textContent = `${formatNumber(result.timedCompletions)} / ${maxTimed}`;
 
-    const coalMaximum = maximum.coal || 0;
-    const coalValue = result.coal || 0;
-    document.querySelector("#captureRate").textContent = coalMaximum
-      ? `${Math.round(percent(coalValue, coalMaximum))}%`
+    document.querySelector("#captureRate").textContent = maxTimed
+      ? `${Math.round(percent(result.timedCompletions, maxTimed))}%`
       : "—";
   }
 
@@ -514,10 +529,10 @@
 
   function updateResetButton() {
     const button = document.querySelector("#resetPlannerButton");
-    button.textContent = mode === "simple" ? "Reset Simple" : "Reset Advanced";
-    button.setAttribute("aria-label", mode === "simple"
-      ? "Reset only the Simple planner"
-      : "Reset only the Advanced planner");
+    const simple = mode === "simple";
+    const label = simple ? "Reset Simple plan" : "Reset Advanced plan";
+    button.setAttribute("aria-label", label);
+    button.setAttribute("title", label);
   }
 
   function setMode(nextMode) {
@@ -540,19 +555,178 @@
       simpleState = normalizeSimpleDefaults();
       renderSimple();
     } else {
-      const defaults = normalizeSimpleDefaults();
-      advancedState = Calc.buildAdvancedFromSimple(config, defaults);
+      advancedState = Calc.buildAdvancedDefaults(config);
       renderAdvanced();
     }
     recalculate();
   }
 
+  function getDayLongMissionsByDay(group) {
+    const result = new Map(config.schedule.days.map(day => [day.id, []]));
+
+    group.missions.forEach(mission => {
+      const availability = mission.availability;
+      if (availability?.type !== "day-long") return;
+      if (!result.has(availability.dayId)) return;
+      result.get(availability.dayId).push(mission);
+    });
+
+    return result;
+  }
+
+  function sameReward(left, right) {
+    const keys = new Set([
+      ...Object.keys(left || {}),
+      ...Object.keys(right || {})
+    ]);
+
+    for (const key of keys) {
+      if ((left?.[key] || 0) !== (right?.[key] || 0)) return false;
+    }
+    return true;
+  }
+
+  function sharedGroupReward(group) {
+    if (!group.missions.length) return null;
+
+    const first = group.missions[0].reward || {};
+    return group.missions.every(mission => sameReward(first, mission.reward || {}))
+      ? first
+      : null;
+  }
+
+  function scheduleSectionLabel(display, reward, fallbackHelp = "") {
+    const help = [
+      display.help || fallbackHelp,
+      reward ? `Reward: ${rewardText(reward)}.` : ""
+    ].filter(Boolean).join(" ");
+
+    return `<div class="reference-section-label" style="grid-column:1 / -1">
+      <strong>${display.label}</strong>
+      <small>${display.subtitle}</small>
+      ${help ? tooltip(help) : ""}
+    </div>`;
+  }
+
+  function referenceTimeCell({
+    icon,
+    localTime = "",
+    localZone = "",
+    utcTime = "",
+    unavailable = false,
+    unavailableLabel = "No Mission"
+  }) {
+    if (unavailable) {
+      return `<div class="reference-window unavailable">
+        <b class="reference-unavailable-mark" aria-hidden="true">—</b>
+        <span>
+          ${unavailableLabel}
+        </span>
+      </div>`;
+    }
+
+    return `<div class="reference-window">
+      <b aria-hidden="true">${icon || "⚡"}</b>
+      <span>
+        <span class="reference-local-time">${localTime}<em>${localZone}</em></span>
+        <small>${utcTime}</small>
+      </span>
+    </div>`;
+  }
+
+  function renderWindowedSchedule(days) {
+    const display = config.missions.timed.schedule;
+    if (!display) return "";
+
+    const windows = Calc.getDisplayWindows(config);
+
+    const rows = windows.map(window =>
+      days.map(day => {
+        const utcTime = `${window.start}–${window.end} UTC`;
+
+        if (!day.windows.includes(window.id)) {
+          return referenceTimeCell({
+            unavailable: true,
+            unavailableLabel: "No Windowed Mission"
+          });
+        }
+
+        const local = localSlot(day, window);
+        return referenceTimeCell({
+          icon: window.icon || "⚡",
+          localTime: local.time,
+          localZone: local.zone,
+          utcTime
+        });
+      }).join("")
+    ).join("");
+
+    return `
+      ${scheduleSectionLabel(
+        display,
+        config.missions.timed.reward,
+        config.missions.timed.description || ""
+      )}
+      ${rows}`;
+  }
+
+  function renderDayLongSchedule(group, days) {
+    const display = group.schedule;
+    if (!display?.enabled) return "";
+
+    const missionsByDay = getDayLongMissionsByDay(group);
+    const hasMissions = Array.from(missionsByDay.values()).some(items => items.length);
+    if (!hasMissions) return "";
+
+    const representative = group.missions.find(
+      mission => mission.availability?.type === "day-long"
+    );
+    const fallbackUtcTime = representative
+      ? `${representative.availability.start}–${representative.availability.end} UTC`
+      : "";
+
+    const cells = days.map(day => {
+      const missions = missionsByDay.get(day.id) || [];
+
+      if (!missions.length) {
+        return referenceTimeCell({
+          unavailable: true,
+          unavailableLabel: "No Day-Long Mission"
+        });
+      }
+
+      // Schedule cells intentionally answer only "when". Mission details and
+      // the shared reward live on the section tooltip above.
+      const mission = missions[0];
+      const availability = mission.availability;
+      const local = localSlot(day, {
+        start: availability.start,
+        end: availability.end
+      });
+
+      return referenceTimeCell({
+        icon: availability.icon || "🗓️",
+        localTime: local.time,
+        localZone: local.zone,
+        utcTime: `${availability.start}–${availability.end} UTC`
+      });
+    }).join("");
+
+    return `
+      ${scheduleSectionLabel(
+        display,
+        sharedGroupReward(group),
+        group.description || ""
+      )}
+      ${cells}`;
+  }
+
   function renderScheduleReference() {
-    document.querySelector("#detectedTimezone").textContent = Intl.DateTimeFormat().resolvedOptions().timeZone || "your browser timezone";
+    document.querySelector("#detectedTimezone").textContent =
+      Intl.DateTimeFormat().resolvedOptions().timeZone || "your browser timezone";
 
     const host = document.querySelector("#scheduleReference");
     const days = config.schedule.days;
-    const displayWindows = Calc.getDisplayWindows(config);
     const columns = days.length;
 
     const headers = days.map(day => `
@@ -561,25 +735,17 @@
         <small>PTS / UTC day</small>
       </div>`).join("");
 
-    const rows = displayWindows.map(window =>
-      days.map(day => {
-        if (!day.windows.includes(window.id)) {
-          return `<div class="reference-window unavailable">
-            <b>${window.icon || "⚡"}</b>
-            <span>Not available<small>${window.label} slot</small></span>
-          </div>`;
-        }
+    const configuredGroups = config.missions.groups
+      .filter(group => group.schedule?.enabled)
+      .map(group => renderDayLongSchedule(group, days))
+      .join("");
 
-        const local = localSlot(day, window);
-        const localDay = local.localDay === local.endLocalDay ? local.localDay : `${local.localDay}–${local.endLocalDay}`;
-        return `<div class="reference-window">
-          <b>${window.icon || "⚡"}</b>
-          <span>${local.time}<small>${localDay} local · ${window.start}–${window.end} UTC</small></span>
-        </div>`;
-      }).join("")
-    ).join("");
-
-    host.innerHTML = `<div class="reference-days" style="--schedule-columns:${columns}">${headers}${rows}</div>`;
+    host.innerHTML = `
+      <div class="reference-days" style="--schedule-columns:${columns}">
+        ${headers}
+        ${renderWindowedSchedule(days)}
+        ${configuredGroups}
+      </div>`;
   }
 
   function init(loadedConfig) {
@@ -588,7 +754,7 @@
     config = loadedConfig;
 
     simpleState = normalizeSimpleDefaults();
-    advancedState = Calc.buildAdvancedFromSimple(config, normalizeSimpleDefaults());
+    advancedState = Calc.buildAdvancedDefaults(config);
 
     document.querySelector("#verifiedAgainst").textContent = `Verified ${config.model.verifiedAgainst}`;
     document.querySelector("#appContent").hidden = false;

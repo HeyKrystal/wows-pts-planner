@@ -20,6 +20,58 @@
       }
     });
 
+
+    const scheduleDisplays = [
+      config?.missions?.timed?.schedule,
+      ...(config?.missions?.groups || []).map(group => group.schedule).filter(Boolean)
+    ];
+
+    scheduleDisplays.forEach((display, index) => {
+      if (!display.label || typeof display.label !== "string") {
+        problems.push(`Schedule display ${index + 1} needs a label.`);
+      }
+      if (!display.subtitle || typeof display.subtitle !== "string") {
+        problems.push(`Schedule display ${index + 1} needs a subtitle.`);
+      }
+      if (display.help !== undefined && typeof display.help !== "string") {
+        problems.push(`Schedule display ${index + 1} help must be a string.`);
+      }
+    });
+
+    const configuredDayIds = new Set((config?.schedule?.days || []).map(day => day.id));
+    (config?.missions?.groups || []).forEach(group => {
+      (group.missions || []).forEach(mission => {
+        const availability = mission.availability;
+        if (!availability) return;
+
+        if (!["day-long", "session-long"].includes(availability.type)) {
+          problems.push(
+            `Mission ${mission.id || "?"} has unsupported availability type ${availability.type}.`
+          );
+        }
+
+        if (availability.type === "day-long") {
+          if (!availability.dayId || !configuredDayIds.has(availability.dayId)) {
+            problems.push(
+              `Mission ${mission.id || "?"} needs a valid dayId for day-long availability.`
+            );
+          }
+
+          const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+          if (!timePattern.test(availability.start || "")) {
+            problems.push(
+              `Mission ${mission.id || "?"} needs a valid HH:MM UTC start time for day-long availability.`
+            );
+          }
+          if (!timePattern.test(availability.end || "")) {
+            problems.push(
+              `Mission ${mission.id || "?"} needs a valid HH:MM UTC end time for day-long availability.`
+            );
+          }
+        }
+      });
+    });
+
     const resourceIds = new Set((config?.resources || []).map(resource => resource.id));
     const rewardObjects = [
       config?.missions?.login?.reward,

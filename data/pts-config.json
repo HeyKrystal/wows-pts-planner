@@ -6,9 +6,9 @@
     "returningPlayersOnly": true,
     "notes": [
       "First-time-only introductory rewards are intentionally excluded from projections.",
-      "Mission objectives may change between updates; this model focuses on recurring reward slots and availability windows.",
+      "Mission objectives may change between updates; this model focuses on recurring missions and availability windows.",
       "The schedule is stored in UTC and localized by the browser.",
-      "Draft 4 uses bundled copies of the shared Wargaming resource artwork; production can point the same icon fields at wows-shared-data URLs."
+      "Draft 8 uses bundled copies of the shared Wargaming resource artwork; production can point the same icon fields at wows-shared-data URLs."
     ]
   },
   "resources": [
@@ -56,21 +56,21 @@
       {
         "id": "morning",
         "label": "Morning",
-        "icon": "\ud83c\udf05",
+        "icon": "🌅",
         "start": "11:00",
         "end": "15:00"
       },
       {
         "id": "afternoon",
         "label": "Afternoon",
-        "icon": "\u2600\ufe0f",
+        "icon": "☀️",
         "start": "17:00",
         "end": "21:00"
       },
       {
         "id": "evening",
         "label": "Evening",
-        "icon": "\ud83c\udf19",
+        "icon": "🌙",
         "start": "22:00",
         "end": "02:00"
       }
@@ -136,7 +136,7 @@
     "login": {
       "id": "login",
       "label": "Session login",
-      "description": "Awarded once for the first login to each Public Test session.",
+      "description": "Automatically awarded the first time you log in during each enabled Public Test session.",
       "reward": {
         "coal": 750,
         "doubloons": 100
@@ -151,42 +151,67 @@
         "freeXp": 5000,
         "credits": 800000,
         "eliteCommanderXp": 10000
+      },
+      "schedule": {
+        "label": "Windowed Missions",
+        "subtitle": "Play during one of the listed four-hour windows",
+        "help": "Every Windowed Mission uses the same recurring reward package."
       }
     },
     "groups": [
       {
         "id": "daily",
-        "label": "Daily missions",
-        "description": "Recurring daily reward slots that are available for much longer than the timed four-hour windows.",
+        "label": "Day-Long Missions",
+        "description": "Recurring missions that remain available for a full PTS day instead of only a four-hour timed window.",
         "simple": {
           "enabled": true,
-          "label": "Daily missions",
-          "help": "How often do you expect to complete the recurring daily missions? Exact objectives may vary between PTS updates."
+          "label": "Day-Long Missions",
+          "help": "How often do you expect to complete the longer Day 2 and Day 3 missions? Exact objectives may vary between PTS updates."
         },
         "missions": [
           {
             "id": "daily-day-2",
-            "label": "Day 2 daily mission",
-            "description": "Historically available on the second day of each session. Exact objective may vary.",
+            "label": "Day 2 mission",
+            "description": "Historically available throughout Day 2 of each session. Exact objective may vary. Historically refreshes at 02:00 UTC.",
             "reward": {
               "coal": 1000,
               "freeXp": 2500,
               "credits": 500000,
               "communityTokens": 200
+            },
+            "availability": {
+              "type": "day-long",
+              "dayId": "fri",
+              "start": "02:00",
+              "end": "02:00",
+              "icon": "🗓️"
             }
           },
           {
             "id": "daily-day-3",
-            "label": "Day 3 daily mission",
-            "description": "Historically available on the third day of each session. Exact objective may vary.",
+            "label": "Day 3 mission",
+            "description": "Historically available throughout Day 3 of each session. Exact objective may vary. Historically refreshes at 02:00 UTC.",
             "reward": {
               "coal": 1000,
               "freeXp": 2500,
               "credits": 500000,
               "communityTokens": 200
+            },
+            "availability": {
+              "type": "day-long",
+              "dayId": "sat",
+              "start": "02:00",
+              "end": "02:00",
+              "icon": "🗓️"
             }
           }
-        ]
+        ],
+        "schedule": {
+          "enabled": true,
+          "label": "Day-Long Missions",
+          "subtitle": "Available for the full listed mission day",
+          "help": "Every Day-Long Mission currently uses the same recurring reward package."
+        }
       },
       {
         "id": "round-community-tokens",
@@ -204,6 +229,9 @@
             "description": "Objective varies by update.",
             "reward": {
               "communityTokens": 100
+            },
+            "availability": {
+              "type": "session-long"
             }
           },
           {
@@ -212,6 +240,9 @@
             "description": "Objective varies by update.",
             "reward": {
               "communityTokens": 200
+            },
+            "availability": {
+              "type": "session-long"
             }
           },
           {
@@ -220,6 +251,9 @@
             "description": "Usually tied to one of the major features being tested.",
             "reward": {
               "communityTokens": 1000
+            },
+            "availability": {
+              "type": "session-long"
             }
           },
           {
@@ -228,6 +262,9 @@
             "description": "Usually tied to a secondary feature or battle type being tested.",
             "reward": {
               "communityTokens": 500
+            },
+            "availability": {
+              "type": "session-long"
             }
           },
           {
@@ -236,6 +273,9 @@
             "description": "Objective varies by update.",
             "reward": {
               "communityTokens": 450
+            },
+            "availability": {
+              "type": "session-long"
             }
           },
           {
@@ -244,6 +284,9 @@
             "description": "A larger recurring round mission whose objective changes between updates.",
             "reward": {
               "communityTokens": 1600
+            },
+            "availability": {
+              "type": "session-long"
             }
           }
         ]
@@ -252,24 +295,28 @@
   },
   "simpleDefaults": {
     "sessions": [
-      true,
-      true
+      false,
+      false
     ],
     "days": {
-      "thu": true,
-      "fri": true,
-      "sat": true,
-      "sun": true,
+      "thu": false,
+      "fri": false,
+      "sat": false,
+      "sun": false,
       "mon": false
     },
     "windowRates": {
       "morning": 0,
-      "afternoon": 0.75,
-      "evening": 1
+      "afternoon": 0,
+      "evening": 0
     },
     "missionGroupRates": {
-      "daily": 1,
-      "round-community-tokens": 1
+      "daily": 0,
+      "round-community-tokens": 0
     }
+  },
+  "advancedDefaults": {
+    "playSessions": true,
+    "mirrorSession1": true
   }
 }
