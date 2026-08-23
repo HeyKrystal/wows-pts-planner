@@ -1,0 +1,135 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  --radius-lg: 18px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --on-accent: #ffffff;
+
+  /* Violet Coral — PTS Planner identity */
+  --page-bg: #f3edf7;
+  --page-bg-top: #ece3f3;
+  --page-glow: rgba(238, 101, 104, 0.14);
+  --surface: #fffbfe;
+  --surface-muted: #f7f0fa;
+  --surface-input: #ffffff;
+  --surface-hover: #fff8fc;
+  --ink: #35283a;
+  --heading: #44204f;
+  --muted: #746579;
+  --muted-disabled: #968a9a;
+  --border: #ddd0e3;
+  --border-strong: #c3aecb;
+
+  --blue: #8250b7;
+  --teal: #8250b7;
+  --teal-dark: #623592;
+  --gold: #ef7a55;
+  --gold-soft: #fff0e9;
+  --green: #39785c;
+  --green-soft: #e7f4ed;
+  --red: #b94155;
+  --red-soft: #fde9ed;
+
+  --accent: #8250b7;
+  --accent-strong: #623592;
+  --accent-soft: #f0e4f8;
+  --accent-contrast: #ffffff;
+  --secondary-accent: #ed696a;
+
+  --day-band: #5c3470;
+  --day-band-ink: #ffffff;
+  --day-band-muted: #eadcf0;
+  --mission-bg: #fffbfe;
+  --mission-border: #d9c9df;
+  --mission-hover: #fff4f7;
+  --mission-selected-bg: #f6e7f4;
+  --mission-selected-border: #8250b7;
+  --mission-selected-shadow: rgba(130, 80, 183, 0.18);
+
+  /* WoWS resource artwork needs a quiet contrast surface in both themes. */
+  --resource-icon-bg: rgba(68, 32, 79, 0.075);
+  --resource-icon-border: rgba(68, 32, 79, 0.10);
+  --resource-icon-shadow: rgba(68, 32, 79, 0.10);
+
+  --hero-start: #4b285e;
+  --hero-end: #7b3e76;
+  --hero-border: rgba(255, 255, 255, 0.17);
+  --hero-decoration: rgba(255, 255, 255, 0.055);
+  --hero-muted: rgba(255, 246, 252, 0.82);
+  --hero-soft: #ffc3c2;
+  --hero-grid: rgba(255, 255, 255, 0.065);
+
+  --focus-ring: rgba(130, 80, 183, 0.3);
+  --info-border: #e2cddf;
+  --info-ink: #68465f;
+  --info-bg: #fcf1f7;
+  --rules-bg: rgba(255, 251, 254, 0.84);
+  --rules-shadow: 0 8px 24px rgba(68, 32, 79, 0.05);
+  --shadow: 0 18px 45px rgba(68, 32, 79, 0.11);
+  --primary-shadow: 0 5px 13px rgba(130, 80, 183, 0.2);
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --page-bg: #130d18;
+  --page-bg-top: #211329;
+  --page-glow: rgba(255, 119, 113, 0.13);
+  --surface: #25172b;
+  --surface-muted: #302038;
+  --surface-input: #2a1b31;
+  --surface-hover: #382440;
+  --ink: #f1e8f3;
+  --heading: #faeffc;
+  --muted: #c0adc4;
+  --muted-disabled: #8c788f;
+  --border: #4a3450;
+  --border-strong: #65486d;
+
+  --blue: #d094ff;
+  --teal: #d094ff;
+  --teal-dark: #e0b6ff;
+  --gold: #ff8a68;
+  --gold-soft: #41261f;
+  --green: #73c99a;
+  --green-soft: #1b3728;
+  --red: #ff8493;
+  --red-soft: #41242d;
+
+  --accent: #d094ff;
+  --accent-strong: #e0b6ff;
+  --accent-soft: #3b2843;
+  --secondary-accent: #ff7c76;
+
+  --day-band: #653b76;
+  --day-band-ink: #fff6ff;
+  --day-band-muted: #e6d2ec;
+  --mission-bg: #25172b;
+  --mission-border: #573d5e;
+  --mission-hover: #35213d;
+  --mission-selected-bg: #412b48;
+  --mission-selected-border: #d094ff;
+  --mission-selected-shadow: rgba(208, 148, 255, 0.2);
+
+  --resource-icon-bg: rgba(255, 255, 255, 0.075);
+  --resource-icon-border: rgba(255, 255, 255, 0.09);
+  --resource-icon-shadow: rgba(0, 0, 0, 0.22);
+
+  --hero-start: #311b3b;
+  --hero-end: #663355;
+  --hero-border: rgba(255, 202, 205, 0.16);
+  --hero-decoration: rgba(255, 255, 255, 0.045);
+  --hero-muted: rgba(255, 241, 250, 0.8);
+  --hero-soft: #ffb5b4;
+  --hero-grid: rgba(255, 255, 255, 0.05);
+
+  --focus-ring: rgba(208, 148, 255, 0.36);
+  --info-border: #65445f;
+  --info-ink: #ddc3d7;
+  --info-bg: #321f31;
+  --rules-bg: rgba(37, 23, 43, 0.9);
+  --rules-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  --shadow: 0 18px 45px rgba(0, 0, 0, 0.32);
+  --primary-shadow: 0 5px 13px rgba(0, 0, 0, 0.26);
+}

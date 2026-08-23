@@ -1,0 +1,275 @@
+{
+  "schemaVersion": 2,
+  "model": {
+    "name": "Standard Public Test reward model",
+    "verifiedAgainst": "Update 15.8",
+    "returningPlayersOnly": true,
+    "notes": [
+      "First-time-only introductory rewards are intentionally excluded from projections.",
+      "Mission objectives may change between updates; this model focuses on recurring reward slots and availability windows.",
+      "The schedule is stored in UTC and localized by the browser.",
+      "Draft 4 uses bundled copies of the shared Wargaming resource artwork; production can point the same icon fields at wows-shared-data URLs."
+    ]
+  },
+  "resources": [
+    {
+      "id": "coal",
+      "label": "Coal",
+      "icon": "https://heykrystal.github.io/wows-shared-data/public/assets/wargaming/resources/icons/icon_coal.png",
+      "format": "integer"
+    },
+    {
+      "id": "communityTokens",
+      "label": "Community Tokens",
+      "icon": "https://heykrystal.github.io/wows-shared-data/public/assets/wargaming/resources/icons/icon_recruitment_points.png",
+      "format": "integer"
+    },
+    {
+      "id": "freeXp",
+      "label": "Free XP",
+      "icon": "https://heykrystal.github.io/wows-shared-data/public/assets/wargaming/resources/icons/icon_freeXP.png",
+      "format": "compact"
+    },
+    {
+      "id": "credits",
+      "label": "Credits",
+      "icon": "https://heykrystal.github.io/wows-shared-data/public/assets/wargaming/resources/icons/icon_credits.png",
+      "format": "compact"
+    },
+    {
+      "id": "eliteCommanderXp",
+      "label": "Elite Commander XP",
+      "icon": "https://heykrystal.github.io/wows-shared-data/public/assets/wargaming/resources/icons/icon_eliteXP.png",
+      "format": "compact"
+    },
+    {
+      "id": "doubloons",
+      "label": "Doubloons",
+      "icon": "https://heykrystal.github.io/wows-shared-data/public/assets/wargaming/resources/icons/icon_gold.png",
+      "format": "integer"
+    }
+  ],
+  "schedule": {
+    "sessionCount": 2,
+    "sessionGapDays": 7,
+    "timedWindowsUtc": [
+      {
+        "id": "morning",
+        "label": "Morning",
+        "icon": "\ud83c\udf05",
+        "start": "11:00",
+        "end": "15:00"
+      },
+      {
+        "id": "afternoon",
+        "label": "Afternoon",
+        "icon": "\u2600\ufe0f",
+        "start": "17:00",
+        "end": "21:00"
+      },
+      {
+        "id": "evening",
+        "label": "Evening",
+        "icon": "\ud83c\udf19",
+        "start": "22:00",
+        "end": "02:00"
+      }
+    ],
+    "days": [
+      {
+        "id": "thu",
+        "label": "Thursday",
+        "shortLabel": "Thu",
+        "offset": 0,
+        "windows": [
+          "afternoon",
+          "evening"
+        ]
+      },
+      {
+        "id": "fri",
+        "label": "Friday",
+        "shortLabel": "Fri",
+        "offset": 1,
+        "windows": [
+          "morning",
+          "afternoon",
+          "evening"
+        ]
+      },
+      {
+        "id": "sat",
+        "label": "Saturday",
+        "shortLabel": "Sat",
+        "offset": 2,
+        "windows": [
+          "morning",
+          "afternoon",
+          "evening"
+        ]
+      },
+      {
+        "id": "sun",
+        "label": "Sunday",
+        "shortLabel": "Sun",
+        "offset": 3,
+        "windows": [
+          "morning",
+          "afternoon",
+          "evening"
+        ]
+      },
+      {
+        "id": "mon",
+        "label": "Monday",
+        "shortLabel": "Mon",
+        "offset": 4,
+        "windows": [
+          "morning",
+          "afternoon",
+          "evening"
+        ]
+      }
+    ]
+  },
+  "missions": {
+    "login": {
+      "id": "login",
+      "label": "Session login",
+      "description": "Awarded once for the first login to each Public Test session.",
+      "reward": {
+        "coal": 750,
+        "doubloons": 100
+      }
+    },
+    "timed": {
+      "id": "timed",
+      "label": "Timed Special Task",
+      "description": "The objective chain can vary, but the recurring reward package is the main time-sensitive PTS reward.",
+      "reward": {
+        "coal": 700,
+        "freeXp": 5000,
+        "credits": 800000,
+        "eliteCommanderXp": 10000
+      }
+    },
+    "groups": [
+      {
+        "id": "daily",
+        "label": "Daily missions",
+        "description": "Recurring daily reward slots that are available for much longer than the timed four-hour windows.",
+        "simple": {
+          "enabled": true,
+          "label": "Daily missions",
+          "help": "How often do you expect to complete the recurring daily missions? Exact objectives may vary between PTS updates."
+        },
+        "missions": [
+          {
+            "id": "daily-day-2",
+            "label": "Day 2 daily mission",
+            "description": "Historically available on the second day of each session. Exact objective may vary.",
+            "reward": {
+              "coal": 1000,
+              "freeXp": 2500,
+              "credits": 500000,
+              "communityTokens": 200
+            }
+          },
+          {
+            "id": "daily-day-3",
+            "label": "Day 3 daily mission",
+            "description": "Historically available on the third day of each session. Exact objective may vary.",
+            "reward": {
+              "coal": 1000,
+              "freeXp": 2500,
+              "credits": 500000,
+              "communityTokens": 200
+            }
+          }
+        ]
+      },
+      {
+        "id": "round-community-tokens",
+        "label": "Round-long Community Token missions",
+        "description": "Longer missions whose objectives vary by update. In the standard model these reward Community Tokens and can be completed once per session.",
+        "simple": {
+          "enabled": true,
+          "label": "Round-long Community Token missions",
+          "help": "How much of the longer Community Token mission set do you expect to finish? Advanced mode lets you choose the individual missions."
+        },
+        "missions": [
+          {
+            "id": "ct-100",
+            "label": "100 CT mission",
+            "description": "Objective varies by update.",
+            "reward": {
+              "communityTokens": 100
+            }
+          },
+          {
+            "id": "ct-200",
+            "label": "200 CT mission",
+            "description": "Objective varies by update.",
+            "reward": {
+              "communityTokens": 200
+            }
+          },
+          {
+            "id": "ct-1000",
+            "label": "1,000 CT mission",
+            "description": "Usually tied to one of the major features being tested.",
+            "reward": {
+              "communityTokens": 1000
+            }
+          },
+          {
+            "id": "ct-500",
+            "label": "500 CT mission",
+            "description": "Usually tied to a secondary feature or battle type being tested.",
+            "reward": {
+              "communityTokens": 500
+            }
+          },
+          {
+            "id": "ct-450",
+            "label": "450 CT mission",
+            "description": "Objective varies by update.",
+            "reward": {
+              "communityTokens": 450
+            }
+          },
+          {
+            "id": "ct-1600",
+            "label": "1,600 CT Special Task",
+            "description": "A larger recurring round mission whose objective changes between updates.",
+            "reward": {
+              "communityTokens": 1600
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "simpleDefaults": {
+    "sessions": [
+      true,
+      true
+    ],
+    "days": {
+      "thu": true,
+      "fri": true,
+      "sat": true,
+      "sun": true,
+      "mon": false
+    },
+    "windowRates": {
+      "morning": 0,
+      "afternoon": 0.75,
+      "evening": 1
+    },
+    "missionGroupRates": {
+      "daily": 1,
+      "round-community-tokens": 1
+    }
+  }
+}

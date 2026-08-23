@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Plan World of Warships Public Test sessions and project the repeatable Live Server rewards your play plan can earn." />
+  <title>PTS Rewards Planner | World of Warships</title>
+
+  <script>
+    (() => {
+      const themeKey = "wows-pts-planner-theme";
+      let theme = "system";
+      try {
+        const savedTheme = localStorage.getItem(themeKey);
+        if (["system", "light", "dark"].includes(savedTheme)) theme = savedTheme;
+      } catch {}
+
+      const dark = theme === "dark" ||
+        (theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+      document.documentElement.dataset.themePreference = theme;
+    })();
+  </script>
+
+  <link rel="stylesheet" href="styles/theme.css" />
+  <link rel="stylesheet" href="styles/app.css" />
+  <link rel="stylesheet" href="styles/footer.css" />
+  <link rel="stylesheet" href="styles/tool-tabs.css" />
+
+  <script src="src/config-loader.js" defer></script>
+  <script src="src/calculator.js" defer></script>
+  <script src="src/theme.js" defer></script>
+  <script src="src/ui.js" defer></script>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">World of Warships</p>
+        <h1>PTS Rewards Planner</h1>
+        <p class="hero-subtitle">Build a Public Test play plan, see the repeatable Live Server rewards it should earn, and spot the timed missions worth fitting into your weekend.</p>
+      </div>
+      <div class="hero-badge">
+        <span>Standard reward model</span>
+        <strong id="verifiedAgainst">Loading…</strong>
+      </div>
+    </header>
+
+    <div class="draft-toolbar" role="note">
+      <strong>Draft 4</strong>
+      <span>Resource artwork, schedule, rewards, mission groups, and Simple-mode projection controls are driven by <code>data/pts-config.json</code>.</span>
+    </div>
+
+    <div id="configError" class="error-panel" hidden></div>
+
+    <main class="planner-layout" id="appContent" hidden>
+      <section class="panel" aria-labelledby="planHeading">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Build your plan</p>
+            <h2 id="planHeading">How much PTS do you expect to play?</h2>
+            <p>Simple gives you a fast projection. Advanced lets you choose the exact reward opportunities you intend to finish.</p>
+          </div>
+          <div class="planner-view-controls">
+            <div class="mode-toggle" role="group" aria-label="Planner detail">
+              <button type="button" data-mode="simple" aria-pressed="true">Simple</button>
+              <button type="button" data-mode="advanced" aria-pressed="false">Advanced</button>
+            </div>
+            <button class="reset-button" id="resetPlannerButton" type="button">Reset Simple</button>
+          </div>
+        </div>
+
+        <div id="simplePlanner"></div>
+
+        <div id="advancedPlanner" hidden>
+          <div class="advanced-note">
+            <strong>Exact planning mode.</strong> Choose the timed windows and longer missions you actually expect to complete. Session 2 can mirror Session 1 to keep the planner compact.
+          </div>
+          <div id="advancedSessions"></div>
+        </div>
+      </section>
+
+      <aside class="summary-sticky" aria-labelledby="projectionLabel">
+        <p class="section-kicker">At a glance</p>
+        <h2 id="projectionLabel">Projected Rewards</h2>
+        <p class="summary-intro">Repeatable Live Server rewards based on the plan selected at left.</p>
+        <div class="reward-list" id="rewardRows"></div>
+        <div class="summary-meta">
+          <div class="summary-stat"><span>Timed chains</span><strong id="timedCount">—</strong></div>
+          <div class="summary-stat"><span>Coal captured</span><strong id="captureRate">—</strong></div>
+        </div>
+      </aside>
+    </main>
+
+    <details class="rules-panel" open>
+      <summary>
+        <span>Local-Time PTS Schedule</span>
+        <small>Recurring timed windows aligned and converted for your browser</small>
+        <span class="details-indicator" aria-hidden="true">
+          <span class="details-indicator-symbol">
+            <span class="details-indicator-arm details-indicator-arm-left"></span>
+            <span class="details-indicator-arm details-indicator-arm-right"></span>
+          </span>
+        </span>
+      </summary>
+      <div class="details-body">
+        <p class="timezone-note">Times are converted from the UTC schedule in the JSON model to <strong id="detectedTimezone">your browser timezone</strong>. Day headings are the PTS/UTC day; each time cell shows its local weekday when that differs.</p>
+        <div id="scheduleReference"></div>
+      </div>
+    </details>
+
+    <details class="rules-panel">
+      <summary>
+        <span>How the Reward Model Works</span>
+        <small>What is stable, what varies, and what is intentionally excluded</small>
+        <span class="details-indicator" aria-hidden="true">
+          <span class="details-indicator-symbol">
+            <span class="details-indicator-arm details-indicator-arm-left"></span>
+            <span class="details-indicator-arm details-indicator-arm-right"></span>
+          </span>
+        </span>
+      </summary>
+      <div class="details-body model-explanation">
+        <div class="explanation-grid">
+          <section>
+            <h3>Stored in JSON</h3>
+            <p>Session count, days, UTC time windows, recurring mission groups, reward packages, resource types, and Simple-mode controls all come from one data file. Maximum rewards are calculated from that data.</p>
+          </section>
+          <section>
+            <h3>Intentionally update-agnostic</h3>
+            <p>The exact objective might be Base XP one month and Dockyard progress the next. The planner cares about the repeatable reward slot rather than reproducing every PTS article.</p>
+          </section>
+          <section>
+            <h3>First-time rewards excluded</h3>
+            <p>One-time introductory PTS bonuses are not part of the estimate. A new player may therefore receive a little more than this planner predicts.</p>
+          </section>
+          <section>
+            <h3>Maintenance path</h3>
+            <p>If Wargaming materially changes the schedule or recurring mission groups, update the JSON model. The UI and calculator consume that structure without monthly HTML edits for ordinary schedule/reward changes.</p>
+          </section>
+        </div>
+      </div>
+    </details>
+
+    <footer class="site-footer">
+      <nav class="tool-dock" aria-label="Other World of Warships tools">
+        <span class="tool-dock-label">Other WoWs tools ›</span>
+
+        <a class="tool-tab" href="https://collections.krstldv.com/">
+          <div class="tool-tab-title">
+            <img class="tool-tab-icon" src="https://collections.krstldv.com/images/app-icon.png" alt="" />
+            <span>Collections Calc</span>
+          </div>
+          <p class="tool-tab-description">Estimate how many containers are needed to finish a collection before committing valuable resources.</p>
+        </a>
+
+        <a class="tool-tab" href="https://convoy.krstldv.com/">
+          <div class="tool-tab-title">
+            <span class="tool-tab-fallback-icon" aria-hidden="true">⚓</span>
+            <span>Holiday Convoy</span>
+          </div>
+          <p class="tool-tab-description">Forecast Convoy Tokens, compare reward paths, and build resource scenarios.</p>
+        </a>
+      </nav>
+
+      <div class="footer-copy">
+        <span>Made by HeyKrystal</span>
+        <span aria-hidden="true">•</span>
+        <span class="footer-disclaimer" tabindex="0" aria-describedby="wargamingDisclaimerTooltip">
+          Not affiliated with Wargaming
+          <span class="footer-disclaimer-tooltip" id="wargamingDisclaimerTooltip" role="tooltip">World of Warships, related trademarks, and Wargaming-owned artwork remain the property of Wargaming. This is an unofficial fan project and is not endorsed or supported by Wargaming.</span>
+        </span>
+      </div>
+
+      <div class="theme-control" aria-label="Theme preference">
+        <span class="theme-label">Theme</span>
+        <div class="theme-options" role="group" aria-label="Choose a color theme">
+          <button type="button" data-theme-choice="system" aria-pressed="false">System</button>
+          <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
+          <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+        </div>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
