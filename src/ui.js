@@ -8,6 +8,9 @@
     { value: 1, label: "Always — 100%" }
   ];
 
+  const STORAGE_KEY = "wows-pts-reward-planner.state";
+  const STORAGE_VERSION = 1;
+
   let config = null;
   let mode = "simple";
   let simpleState = null;
@@ -16,6 +19,139 @@
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
+  }
+
+  function readSavedState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+
+      const saved = JSON.parse(raw);
+      if (
+        saved?.version !== STORAGE_VERSION ||
+        saved?.configSchemaVersion !== config.schemaVersion
+      ) {
+        return null;
+      }
+
+      return saved;
+    } catch (error) {
+      console.warn("Could not restore saved planner state.", error);
+      return null;
+    }
+  }
+
+  function writeSavedState() {
+    if (!config || !simpleState || !advancedState) return;
+
+    try {
+      const schedulePanel = document.querySelector("#schedulePanel");
+
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          version: STORAGE_VERSION,
+          configSchemaVersion: config.schemaVersion,
+          mode,
+          scheduleOpen: schedulePanel?.open ?? true,
+          simpleState,
+          advancedState
+        })
+      );
+    } catch (error) {
+      console.warn("Could not save planner state.", error);
+    }
+  }
+
+  function validRate(value) {
+    const numeric = Number(value);
+    return rateOptions.some(option => option.value === numeric)
+      ? numeric
+      : null;
+  }
+
+  function restoreSimpleState(savedState) {
+    const restored = normalizeSimpleDefaults();
+
+    if (!savedState || typeof savedState !== "object") {
+      return restored;
+    }
+
+    restored.sessions = restored.sessions.map((defaultValue, index) =>
+      typeof savedState.sessions?.[index] === "boolean"
+        ? savedState.sessions[index]
+        : defaultValue
+    );
+
+    config.missionTypes.forEach(type => {
+      const savedType = savedState.missionTypes?.[type.id];
+      const restoredType = restored.missionTypes[type.id];
+
+      if (!savedType || !restoredType) return;
+
+      if (type.controls?.simple === "window-frequency") {
+        Object.keys(restoredType.days).forEach(dayId => {
+          if (typeof savedType.days?.[dayId] === "boolean") {
+            restoredType.days[dayId] = savedType.days[dayId];
+          }
+        });
+
+        Object.keys(restoredType.rates).forEach(windowId => {
+          const rate = validRate(savedType.rates?.[windowId]);
+          if (rate !== null) {
+            restoredType.rates[windowId] = rate;
+          }
+        });
+      }
+
+      if (type.controls?.simple === "completion-frequency") {
+        const rate = validRate(savedType.rate);
+        if (rate !== null) {
+          restoredType.rate = rate;
+        }
+      }
+    });
+
+    return restored;
+  }
+
+  function restoreAdvancedState(savedState) {
+    const restored = Calc.buildAdvancedDefaults(config);
+
+    if (!savedState || typeof savedState !== "object") {
+      return restored;
+    }
+
+    restored.sessions.forEach((session, sessionIndex) => {
+      const savedSession = savedState.sessions?.[sessionIndex];
+      if (!savedSession) return;
+
+      if (typeof savedSession.enabled === "boolean") {
+        session.enabled = savedSession.enabled;
+      }
+
+      if (
+        sessionIndex > 0 &&
+        typeof savedSession.mirrorSession1 === "boolean"
+      ) {
+        session.mirrorSession1 = savedSession.mirrorSession1;
+      }
+
+      config.missionTypes.forEach(type => {
+        const restoredSelections = session.selections[type.id];
+        const savedSelections = savedSession.selections?.[type.id];
+
+        if (!restoredSelections || !savedSelections) return;
+
+        Object.keys(restoredSelections).forEach(key => {
+          if (typeof savedSelections[key] === "boolean") {
+            restoredSelections[key] = savedSelections[key];
+          }
+        });
+      });
+    });
+
+    return restored;
   }
 
   function formatNumber(value) {
@@ -29,6 +165,11 @@
 
   function formatResource(resource, value) {
     return resource.format === "compact" ? formatCompact(value) : formatNumber(value);
+  }
+
+  function percent(value, maximum) {
+    if (!maximum) return 0;
+    return Math.min(100, Math.max(0, (value / maximum) * 100));
   }
 
   function resourceIcon(resource, className = "") {
@@ -69,31 +210,21 @@
     return `<span class="reward-inline-list">${bits.join("")}</span>`;
   }
 
-  function groupReward(group) {
+  function typeMaximumReward(type) {
     const total = {};
-    group.missions.forEach(mission => {
-      Object.entries(mission.reward || {}).forEach(([key, value]) => {
+
+    (type.missions || []).forEach(mission => {
+      const reward = Calc.rewardForMission(type, mission) || {};
+      Object.entries(reward).forEach(([key, value]) => {
         total[key] = (total[key] || 0) + value;
       });
     });
+
     return total;
   }
 
-  function groupRewardText(group) {
-    return rewardText(groupReward(group));
-  }
-
-  function groupRewardHtml(group) {
-    return rewardHtml(groupReward(group), { compact: true });
-  }
-
-  function percent(value, maximum) {
-    if (!maximum) return 0;
-    return Math.max(0, Math.min(100, (value / maximum) * 100));
-  }
-
-  function windowById(id) {
-    return config.schedule.timedWindowsUtc.find(window => window.id === id);
+  function typeMaximumRewardHtml(type) {
+    return rewardHtml(typeMaximumReward(type), { compact: true });
   }
 
   function timeParts(value) {
@@ -111,7 +242,7 @@
 
   function localSlot(day, window) {
     const base = nextUtcThursday();
-    base.setUTCDate(base.getUTCDate() + day.offset);
+    base.setUTCDate(base.getUTCDate() + day.offsetDays);
 
     const startParts = timeParts(window.start);
     const endParts = timeParts(window.end);
@@ -145,12 +276,204 @@
       time: `${timeFormatter.format(start)}–${timeFormatter.format(end)}`,
       zone: startZone === endZone ? startZone : `${startZone}–${endZone}`,
       localDay: weekdayFormatter.format(start),
-      endLocalDay: weekdayFormatter.format(end)
+      endLocalDay: weekdayFormatter.format(end),
+      ptsWeekday: base.getUTCDay(),
+      localStartWeekday: start.getDay(),
+      localEndWeekday: end.getDay()
     };
   }
 
+  function localDayShift(local) {
+    const startsOnPtsDay =
+      local.localStartWeekday === local.ptsWeekday;
+    const endsOnPtsDay =
+      local.localEndWeekday === local.ptsWeekday;
+
+    if (startsOnPtsDay && endsOnPtsDay) {
+      return "";
+    }
+
+    if (local.localStartWeekday === local.localEndWeekday) {
+      return local.localDay;
+    }
+
+    return `${local.localDay}→${local.endLocalDay}`;
+  }
+
+  function sharedDayScheduleRange(type) {
+    if (type.schedule?.layout !== "days") {
+      return null;
+    }
+
+    const ranges = new Set(
+      (type.missions || [])
+        .map(mission => {
+          const schedule = mission.schedule;
+          if (!schedule?.start || !schedule?.end) {
+            return null;
+          }
+          return `${schedule.start}|${schedule.end}`;
+        })
+        .filter(Boolean)
+    );
+
+    if (ranges.size !== 1) {
+      return null;
+    }
+
+    const [range] = ranges;
+    const [start, end] = range.split("|");
+
+    return { start, end };
+  }
+
+  function escapeAttribute(value) {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;");
+  }
+
   function tooltip(text) {
-    return `<span class="tooltip" tabindex="0">?<span class="tooltip-content" role="tooltip">${text}</span></span>`;
+    const escaped = escapeAttribute(text);
+    return `<span
+      class="tooltip"
+      tabindex="0"
+      data-tooltip="${escaped}"
+      aria-label="${escaped}"
+    >?</span>`;
+  }
+
+  let floatingTooltip = null;
+  let activeTooltipTrigger = null;
+
+  function positionFloatingTooltip(trigger) {
+    if (!floatingTooltip || floatingTooltip.hidden || !trigger) return;
+
+    const gap = 8;
+    const viewportPadding = 10;
+    const triggerRect = trigger.getBoundingClientRect();
+    const tooltipRect = floatingTooltip.getBoundingClientRect();
+
+    let left =
+      triggerRect.left +
+      triggerRect.width / 2 -
+      tooltipRect.width / 2;
+
+    left = Math.max(
+      viewportPadding,
+      Math.min(left, window.innerWidth - tooltipRect.width - viewportPadding)
+    );
+
+    let top = triggerRect.top - tooltipRect.height - gap;
+    let placement = "top";
+
+    if (top < viewportPadding) {
+      top = triggerRect.bottom + gap;
+      placement = "bottom";
+    }
+
+    floatingTooltip.style.left = `${Math.round(left)}px`;
+    floatingTooltip.style.top = `${Math.round(top)}px`;
+    floatingTooltip.dataset.placement = placement;
+  }
+
+  function showFloatingTooltip(trigger) {
+    if (!trigger?.dataset.tooltip || !floatingTooltip) return;
+
+    activeTooltipTrigger = trigger;
+    floatingTooltip.textContent = trigger.dataset.tooltip;
+    floatingTooltip.hidden = false;
+    floatingTooltip.classList.add("visible");
+    positionFloatingTooltip(trigger);
+  }
+
+  function hideFloatingTooltip() {
+    if (!floatingTooltip) return;
+    activeTooltipTrigger = null;
+    floatingTooltip.classList.remove("visible");
+    floatingTooltip.hidden = true;
+  }
+
+  function initFloatingTooltips() {
+    floatingTooltip = document.createElement("div");
+    floatingTooltip.id = "floatingTooltip";
+    floatingTooltip.className = "floating-tooltip";
+    floatingTooltip.setAttribute("role", "tooltip");
+    floatingTooltip.hidden = true;
+    document.body.append(floatingTooltip);
+
+    document.addEventListener("pointerover", event => {
+      const trigger = event.target.closest?.(".tooltip");
+      if (trigger) showFloatingTooltip(trigger);
+    });
+
+    document.addEventListener("pointerout", event => {
+      const trigger = event.target.closest?.(".tooltip");
+      if (
+        trigger &&
+        trigger === activeTooltipTrigger &&
+        !trigger.contains(event.relatedTarget)
+      ) {
+        hideFloatingTooltip();
+      }
+    });
+
+    document.addEventListener("focusin", event => {
+      const trigger = event.target.closest?.(".tooltip");
+      if (trigger) showFloatingTooltip(trigger);
+    });
+
+    document.addEventListener("focusout", event => {
+      const trigger = event.target.closest?.(".tooltip");
+      if (trigger && trigger === activeTooltipTrigger) {
+        hideFloatingTooltip();
+      }
+    });
+
+    document.addEventListener("click", event => {
+      const trigger = event.target.closest?.(".tooltip");
+      if (!trigger) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (trigger === activeTooltipTrigger) {
+        hideFloatingTooltip();
+      } else {
+        showFloatingTooltip(trigger);
+      }
+    });
+
+    document.addEventListener("pointerdown", event => {
+      if (
+        activeTooltipTrigger &&
+        !event.target.closest?.(".tooltip")
+      ) {
+        hideFloatingTooltip();
+      }
+    });
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") hideFloatingTooltip();
+    });
+
+    window.addEventListener(
+      "scroll",
+      () => {
+        if (activeTooltipTrigger) {
+          positionFloatingTooltip(activeTooltipTrigger);
+        }
+      },
+      true
+    );
+
+    window.addEventListener("resize", () => {
+      if (activeTooltipTrigger) {
+        positionFloatingTooltip(activeTooltipTrigger);
+      }
+    });
   }
 
   function rateSelect(current, attribute) {
@@ -160,48 +483,58 @@
   }
 
   function normalizeSimpleDefaults() {
-    const defaults = clone(config.simpleDefaults);
+    const defaults = clone(config.simpleDefaults || {});
 
-    defaults.sessions = Array.from({ length: config.schedule.sessionCount }, (_, index) =>
-      defaults.sessions?.[index] ?? true
+    defaults.sessions = Array.from(
+      { length: config.pts.sessionCount },
+      (_, index) => defaults.sessions?.[index] ?? false
     );
 
-    defaults.days ||= {};
-    config.schedule.days.forEach(day => {
-      if (defaults.days[day.id] === undefined) defaults.days[day.id] = false;
-    });
+    defaults.missionTypes ||= {};
 
-    defaults.windowRates ||= {};
-    config.schedule.timedWindowsUtc.forEach(window => {
-      if (defaults.windowRates[window.id] === undefined) defaults.windowRates[window.id] = 0;
-    });
+    config.missionTypes.forEach(type => {
+      const current = defaults.missionTypes[type.id] || {};
 
-    defaults.missionGroupRates ||= {};
-    config.missions.groups.forEach(group => {
-      if (defaults.missionGroupRates[group.id] === undefined) {
-        defaults.missionGroupRates[group.id] = 0;
+      if (type.controls?.simple === "window-frequency") {
+        current.days ||= {};
+        config.pts.days.forEach(day => {
+          if (current.days[day.id] === undefined) {
+            current.days[day.id] = false;
+          }
+        });
+
+        current.rates ||= {};
+        (type.schedule?.windows || []).forEach(window => {
+          if (current.rates[window.id] === undefined) {
+            current.rates[window.id] = 0;
+          }
+        });
       }
+
+      if (type.controls?.simple === "completion-frequency") {
+        if (current.rate === undefined) current.rate = 0;
+      }
+
+      defaults.missionTypes[type.id] = current;
     });
 
     return defaults;
   }
 
-  function renderSimple() {
-    const host = document.querySelector("#simplePlanner");
+  function renderSimpleWindowType(type) {
+    const state = simpleState.missionTypes[type.id];
 
-    const sessionChecks = Array.from({ length: config.schedule.sessionCount }, (_, index) => `
+    const dayChecks = config.pts.days.map(day => `
       <label class="pill-check">
-        <input type="checkbox" data-simple-session="${index}" ${simpleState.sessions[index] ? "checked" : ""}>
-        <span>Session ${index + 1}</span>
-      </label>`).join("");
-
-    const dayChecks = config.schedule.days.map(day => `
-      <label class="pill-check">
-        <input type="checkbox" data-simple-day="${day.id}" ${simpleState.days[day.id] ? "checked" : ""}>
+        <input
+          type="checkbox"
+          data-simple-type-day="${type.id}|${day.id}"
+          ${state.days[day.id] ? "checked" : ""}
+        >
         <span>${day.shortLabel || day.label}</span>
       </label>`).join("");
 
-    const windowRows = Calc.getDisplayWindows(config).map(window => `
+    const windowRows = Calc.getDisplayWindows(config, type).map(window => `
       <label class="window-row">
         <span class="window-meta">
           <span>${window.icon || "⚡"}</span>
@@ -210,58 +543,115 @@
             <small>${window.start}–${window.end} UTC</small>
           </span>
         </span>
-        ${rateSelect(simpleState.windowRates[window.id] ?? 0, `data-simple-window="${window.id}"`)}
+        ${rateSelect(
+          state.rates[window.id] ?? 0,
+          `data-simple-type-window="${type.id}|${window.id}"`
+        )}
       </label>`).join("");
 
-    const groupRows = config.missions.groups
-      .filter(group => group.simple?.enabled !== false)
-      .map(group => `
+    return `
+      <div class="subpanel">
+        <div class="subpanel-heading">
+          <h3>${type.label}</h3>
+          ${tooltip(
+            type.simple?.help ||
+            type.help ||
+            "Choose how often you expect to complete this mission type."
+          )}
+        </div>
+
+        <div class="simple-type-block">
+          <h4>Days You Expect to Play</h4>
+          <div class="day-toggles">${dayChecks}</div>
+        </div>
+
+        <div class="window-list">${windowRows}</div>
+      </div>`;
+  }
+
+  function renderSimpleCompletionTypes(types) {
+    if (!types.length) return "";
+
+    const rows = types.map(type => {
+      const state = simpleState.missionTypes[type.id];
+      const maximum = typeMaximumReward(type);
+
+      return `
         <label class="window-row">
           <span class="mission-group-meta">
             <span class="mission-group-title">
-              <strong>${group.simple?.label || group.label}</strong>
-              ${tooltip(group.simple?.help || group.description || "Exact mission objectives may vary by update.")}
+              <strong>${type.label}</strong>
+              ${tooltip(
+                type.simple?.help ||
+                type.help ||
+                "Exact mission objectives may vary by update."
+              )}
             </span>
             <small class="group-maximum">
-              <span>${group.missions.length} mission${group.missions.length === 1 ? "" : "s"} per session</span>
-              <span class="group-maximum-rewards">${groupRewardHtml(group)} <em>maximum per session</em></span>
+              <span>${(type.missions || []).length} mission${(type.missions || []).length === 1 ? "" : "s"} per session</span>
+              <span class="group-maximum-rewards">
+                ${rewardHtml(maximum, { compact: true })}
+                <em>maximum per session</em>
+              </span>
             </small>
           </span>
-          ${rateSelect(simpleState.missionGroupRates[group.id] ?? 0, `data-simple-group="${group.id}"`)}
-        </label>`).join("");
+          ${rateSelect(
+            state.rate ?? 0,
+            `data-simple-type-rate="${type.id}"`
+          )}
+        </label>`;
+    }).join("");
+
+    return `
+      <div class="subpanel">
+        <div class="subpanel-heading">
+          <h3>Longer Missions</h3>
+          ${tooltip(
+            "Each row is a mission type declared by the JSON model. The control estimates how much of that type you expect to complete."
+          )}
+        </div>
+        <div class="fixed-options">${rows}</div>
+      </div>`;
+  }
+
+  function renderSimple() {
+    const host = document.querySelector("#simplePlanner");
+
+    const sessionChecks = Array.from(
+      { length: config.pts.sessionCount },
+      (_, index) => `
+        <label class="pill-check">
+          <input
+            type="checkbox"
+            data-simple-session="${index}"
+            ${simpleState.sessions[index] ? "checked" : ""}
+          >
+          <span>Session ${index + 1}</span>
+        </label>`
+    ).join("");
+
+    const windowTypes = config.missionTypes.filter(
+      type => type.controls?.simple === "window-frequency"
+    );
+
+    const completionTypes = config.missionTypes.filter(
+      type => type.controls?.simple === "completion-frequency"
+    );
 
     host.innerHTML = `
       <div class="subpanel">
         <div class="subpanel-heading">
           <h3>PTS Sessions</h3>
-          ${tooltip("Selecting a session assumes you will at least log in to it, so the recurring session login reward is included.")}
+          ${tooltip(
+            "Selecting a session assumes you will at least log in to it, so the recurring session login reward is included."
+          )}
         </div>
         <div class="round-toggles">${sessionChecks}</div>
       </div>
 
-      <div class="subpanel">
-        <div class="subpanel-heading">
-          <h3>Days You Expect to Play</h3>
-          ${tooltip("These are the PTS / UTC schedule days from the JSON model. Timed windows are converted to your local time in the schedule below.")}
-        </div>
-        <div class="day-toggles">${dayChecks}</div>
-      </div>
-
-      <div class="subpanel">
-        <div class="subpanel-heading">
-          <h3>Timed Special Tasks</h3>
-          ${tooltip(`Each completed timed chain uses the recurring reward package shown throughout the planner: ${rewardText(config.missions.timed.reward)}. Percentages are used only for projection; Advanced mode lets you choose exact windows.`)}
-        </div>
-        <div class="window-list">${windowRows}</div>
-      </div>
-
-      <div class="subpanel">
-        <div class="subpanel-heading">
-          <h3>Longer Missions</h3>
-          ${tooltip("These groups come from the JSON model. Adding or removing a configured mission group automatically changes the Simple planner without an HTML update.")}
-        </div>
-        <div class="fixed-options">${groupRows}</div>
-      </div>`;
+      ${windowTypes.map(renderSimpleWindowType).join("")}
+      ${renderSimpleCompletionTypes(completionTypes)}
+    `;
 
     host.querySelectorAll("input, select").forEach(element => {
       element.addEventListener("change", onSimpleChange);
@@ -272,16 +662,27 @@
     const element = event.currentTarget;
 
     if (element.dataset.simpleSession !== undefined) {
-      simpleState.sessions[Number(element.dataset.simpleSession)] = element.checked;
+      simpleState.sessions[Number(element.dataset.simpleSession)] =
+        element.checked;
     }
-    if (element.dataset.simpleDay) {
-      simpleState.days[element.dataset.simpleDay] = element.checked;
+
+    if (element.dataset.simpleTypeDay) {
+      const [typeId, dayId] =
+        element.dataset.simpleTypeDay.split("|");
+      simpleState.missionTypes[typeId].days[dayId] =
+        element.checked;
     }
-    if (element.dataset.simpleWindow) {
-      simpleState.windowRates[element.dataset.simpleWindow] = Number(element.value);
+
+    if (element.dataset.simpleTypeWindow) {
+      const [typeId, windowId] =
+        element.dataset.simpleTypeWindow.split("|");
+      simpleState.missionTypes[typeId].rates[windowId] =
+        Number(element.value);
     }
-    if (element.dataset.simpleGroup) {
-      simpleState.missionGroupRates[element.dataset.simpleGroup] = Number(element.value);
+
+    if (element.dataset.simpleTypeRate) {
+      simpleState.missionTypes[element.dataset.simpleTypeRate].rate =
+        Number(element.value);
     }
 
     recalculate();
@@ -293,186 +694,309 @@
 
   function renderAdvanced() {
     const host = document.querySelector("#advancedSessions");
-    host.innerHTML = advancedState.sessions.map((session, sessionIndex) => {
-      const mirrored = sessionIndex > 0 && session.mirrorSession1;
-      const body = mirrored ? renderMirrorSummary(sessionIndex) : renderSessionBody(session, sessionIndex);
 
-      return `
-        <section class="advanced-session ${session.enabled ? "" : "session-disabled"}" data-session-card="${sessionIndex}">
-          <div class="advanced-session-heading">
-            <div>
-              <p class="section-kicker">PTS Session ${sessionIndex + 1}</p>
-              <h3>Session ${sessionIndex + 1}</h3>
+    host.innerHTML = advancedState.sessions.map(
+      (session, sessionIndex) => {
+        const mirrored =
+          sessionIndex > 0 && session.mirrorSession1;
+
+        const body = mirrored
+          ? renderMirrorSummary(sessionIndex)
+          : renderSessionBody(session, sessionIndex);
+
+        return `
+          <section
+            class="advanced-session ${session.enabled ? "" : "session-disabled"}"
+            data-session-card="${sessionIndex}"
+          >
+            <div class="advanced-session-heading">
+              <div>
+                <p class="section-kicker">PTS Session ${sessionIndex + 1}</p>
+                <h3>Session ${sessionIndex + 1}</h3>
+              </div>
+
+              <div class="session-heading-controls">
+                ${sessionIndex > 0 ? `
+                  <label class="mirror-label">
+                    <input
+                      type="checkbox"
+                      data-advanced-mirror="${sessionIndex}"
+                      ${mirrored ? "checked" : ""}
+                    >
+                    <span>Same as Session 1</span>
+                  </label>` : ""}
+
+                <label class="switch-label">
+                  <input
+                    type="checkbox"
+                    data-advanced-session-enabled="${sessionIndex}"
+                    ${session.enabled ? "checked" : ""}
+                  >
+                  <span>Play this session</span>
+                </label>
+              </div>
             </div>
-            <div class="session-heading-controls">
-              ${sessionIndex > 0 ? `
-                <label class="mirror-label">
-                  <input type="checkbox" data-advanced-mirror="${sessionIndex}" ${mirrored ? "checked" : ""}>
-                  <span>Same as Session 1</span>
-                </label>` : ""}
-              <label class="switch-label">
-                <input type="checkbox" data-advanced-session-enabled="${sessionIndex}" ${session.enabled ? "checked" : ""}>
-                <span>Play this session</span>
-              </label>
-            </div>
-          </div>
-          ${body}
-        </section>`;
-    }).join("");
+
+            ${body}
+          </section>`;
+      }
+    ).join("");
 
     host.querySelectorAll("input").forEach(element => {
       element.addEventListener("change", onAdvancedChange);
     });
   }
 
+  function selectedAdvancedCount(session) {
+    return config.missionTypes.reduce((sum, type) => {
+      const selections = session.selections?.[type.id] || {};
+      return sum + Object.values(selections).filter(Boolean).length;
+    }, 0);
+  }
+
   function renderMirrorSummary(sessionIndex) {
     const source = advancedState.sessions[0];
-    const timed = Object.values(source.timed).filter(Boolean).length;
-    const selectedMissions = config.missions.groups.reduce((sum, group) => {
-      return sum + Object.values(source.groups[group.id] || {}).filter(Boolean).length;
-    }, 0);
+    const selected = selectedAdvancedCount(source);
 
     return `<div class="mirror-summary">
-      <strong>Mirroring Session 1.</strong> ${timed} timed windows and ${selectedMissions} longer missions will be used. The Session ${sessionIndex + 1} login reward is included automatically. Uncheck <em>Same as Session 1</em> to restore its independent plan.
+      <strong>Mirroring Session 1.</strong>
+      ${selected} planned mission${selected === 1 ? "" : "s"} will be used.
+      The Session ${sessionIndex + 1} login reward is included automatically.
+      Uncheck <em>Same as Session 1</em> to restore its independent plan.
     </div>`;
   }
 
-  function renderTimedGrid(session, sessionIndex) {
-    const days = config.schedule.days;
-    const displayWindows = Calc.getDisplayWindows(config);
+  function missionTypeHeader(type, count) {
+    const showSharedReward = Boolean(type.reward);
+
+    return `
+      <div class="advanced-section-label advanced-group-label mission-type-label">
+        <div class="mission-type-heading-content">
+          <div class="advanced-group-title">
+            <h4>${type.label}</h4>
+            ${type.help ? tooltip(type.help) : ""}
+          </div>
+
+          ${showSharedReward ? `
+            <div class="type-shared-reward">
+              ${rewardHtml(type.reward, { compact: true })}
+              <em>each</em>
+            </div>` : ""}
+        </div>
+
+        <span>${count} mission${count === 1 ? "" : "s"}</span>
+      </div>`;
+  }
+
+  function renderCalendarType(type, session, sessionIndex) {
+    const days = config.pts.days;
+    const windows = Calc.getDisplayWindows(config, type);
+    const selections = session.selections[type.id] || {};
     const columns = days.length;
 
     const headers = days.map(day => `
       <div class="timed-grid-cell timed-grid-heading">
         <strong>${day.label}</strong>
-        <small>PTS / UTC day</small>
+        <small>WG mission day</small>
       </div>`).join("");
 
-    const slotRows = displayWindows.map(window =>
+    const slotRows = windows.map(window =>
       days.map(day => {
-        if (!day.windows.includes(window.id)) {
+        const dayWindows =
+          type.schedule.windowsByDay?.[day.id] || [];
+
+        if (!dayWindows.includes(window.id)) {
           return `<div class="timed-grid-cell">
-            <div class="mission-slot unavailable" aria-label="No ${window.label} timed mission on ${day.label}">
+            <div
+              class="mission-slot unavailable"
+              aria-label="${type.schedule.unavailableLabel || "No mission"} on ${day.label}"
+            >
               <span class="slot-check-placeholder" aria-hidden="true"></span>
               <span class="slot-icon">${window.icon || "⚡"}</span>
-              <span class="slot-time">Not available<small>${window.label} slot</small></span>
+              <span class="slot-time">
+                Not available
+                <small>${window.label} slot</small>
+              </span>
             </div>
           </div>`;
         }
 
         const key = missionSlotKey(day.id, window.id);
-        const selected = Boolean(session.timed[key]);
+        const selected = Boolean(selections[key]);
         const local = localSlot(day, window);
-        const localDayNote = local.localDay === local.endLocalDay
-          ? `${local.localDay} local`
-          : `${local.localDay}–${local.endLocalDay} local`;
+        const dayShift = localDayShift(local);
 
         return `<div class="timed-grid-cell">
           <label class="mission-slot ${selected ? "selected" : ""}">
-            <input type="checkbox" data-advanced-timed="${sessionIndex}|${key}" ${selected ? "checked" : ""}>
+            <input
+              type="checkbox"
+              data-advanced-selection="${sessionIndex}|${type.id}|${key}"
+              ${selected ? "checked" : ""}
+            >
             <span class="slot-icon">${window.icon || "⚡"}</span>
-            <span class="slot-time">${local.time}<small>${localDayNote}</small></span>
+            <span class="slot-time">
+              <span class="slot-local-time">
+                ${local.time}
+                <em>${local.zone}</em>
+                ${dayShift ? `<b>${dayShift}</b>` : ""}
+              </span>
+            </span>
           </label>
         </div>`;
       }).join("")
     ).join("");
 
-    return `<div class="schedule-grid" style="--schedule-columns:${columns}">${headers}${slotRows}</div>`;
-  }
-
-  function renderMissionGroup(sessionIndex, group, session) {
-    const choices = session.groups[group.id] || {};
-    const checks = group.missions.map(mission => renderMissionCheck(
-      sessionIndex,
-      group.id,
-      mission,
-      Boolean(choices[mission.id])
-    )).join("");
+    const count = Calc.getWindowSlots(config, type).length;
 
     return `
-      <div class="advanced-section-label advanced-group-label">
-        <div class="advanced-group-title">
-          <h4>${group.label}</h4>
-          ${group.description ? tooltip(group.description) : ""}
-        </div>
-        <span>${group.missions.length} mission${group.missions.length === 1 ? "" : "s"}</span>
-      </div>
-      <div class="mission-check-grid">${checks}</div>`;
+      ${missionTypeHeader(type, count)}
+      <div
+        class="schedule-grid"
+        style="--schedule-columns:${columns}"
+      >
+        ${headers}
+        ${slotRows}
+      </div>`;
   }
 
-  function renderSessionBody(session, sessionIndex) {
-    const groups = config.missions.groups.map(group => renderMissionGroup(sessionIndex, group, session)).join("");
-
-    return `<div class="session-body">
-      <div class="advanced-section-label">
-        <h4>Timed windows</h4>
-        <span class="advanced-reward-summary">${rewardHtml(config.missions.timed.reward, { compact: true })}<em>each</em></span>
-      </div>
-      ${renderTimedGrid(session, sessionIndex)}
-
-      ${groups}
-
-      <div class="automatic-login">
-        <div class="automatic-login-title">
-          <strong>${config.missions.login.label}</strong>
-          ${tooltip(config.missions.login.description)}
-          <span>Included automatically</span>
-        </div>
-        <div class="automatic-login-reward">
-          ${rewardHtml(config.missions.login.reward, { compact: true })}
-        </div>
-      </div>
-    </div>`;
-  }
-
-  function renderMissionCheck(sessionIndex, groupId, mission, selected) {
-    const attribute = `data-advanced-group="${sessionIndex}|${groupId}|${mission.id}"`;
+  function renderListMission(
+    sessionIndex,
+    type,
+    mission,
+    selected
+  ) {
+    const reward = Calc.rewardForMission(type, mission);
+    const showMissionReward = Boolean(mission.reward);
 
     return `<label class="mission-check ${selected ? "selected" : ""}">
-      <input type="checkbox" ${attribute} ${selected ? "checked" : ""}>
+      <input
+        type="checkbox"
+        data-advanced-selection="${sessionIndex}|${type.id}|${mission.id}"
+        ${selected ? "checked" : ""}
+      >
+
       <span class="mission-check-title">
         <span class="mission-title-with-help">
           <strong>${mission.label}</strong>
-          ${mission.description ? tooltip(mission.description) : ""}
+          ${mission.help ? tooltip(mission.help) : ""}
         </span>
+
+        ${mission.schedule?.start && mission.schedule?.end ? `
+          <small class="mission-schedule-meta">
+            <span aria-hidden="true">${mission.schedule.icon || "🗓️"}</span>
+            ${mission.schedule.start}–${mission.schedule.end} UTC
+          </small>` : ""}
       </span>
-      <span class="reward-chip">${rewardHtml(mission.reward, { compact: true })}</span>
+
+      ${showMissionReward && reward ? `
+        <span class="reward-chip">
+          ${rewardHtml(reward, { compact: true })}
+        </span>` : ""}
     </label>`;
+  }
+
+  function renderListType(type, session, sessionIndex) {
+    const selections = session.selections[type.id] || {};
+    const missions = type.missions || {};
+
+    const checks = (type.missions || []).map(mission =>
+      renderListMission(
+        sessionIndex,
+        type,
+        mission,
+        Boolean(selections[mission.id])
+      )
+    ).join("");
+
+    return `
+      ${missionTypeHeader(type, type.missions.length)}
+      <div class="mission-check-grid">${checks}</div>`;
+  }
+
+  function renderMissionType(type, session, sessionIndex) {
+    switch (type.controls?.advanced) {
+      case "calendar":
+        return renderCalendarType(type, session, sessionIndex);
+      case "list":
+        return renderListType(type, session, sessionIndex);
+      default:
+        return "";
+    }
+  }
+
+  function renderSessionBody(session, sessionIndex) {
+    const types = config.missionTypes.map(type =>
+      renderMissionType(type, session, sessionIndex)
+    ).join("");
+
+    const login = config.automaticRewards.sessionLogin;
+
+    return `<div class="session-body">
+      ${types}
+
+      <div class="automatic-login">
+        <div class="automatic-login-title">
+          <strong>${login.label}</strong>
+          ${tooltip(login.help)}
+          <span>Included automatically</span>
+        </div>
+
+        <div class="automatic-login-reward">
+          ${rewardHtml(login.reward, { compact: true })}
+        </div>
+      </div>
+    </div>`;
   }
 
   function onAdvancedChange(event) {
     const element = event.currentTarget;
 
     if (element.dataset.advancedSessionEnabled !== undefined) {
-      const index = Number(element.dataset.advancedSessionEnabled);
-      advancedState.sessions[index].enabled = element.checked;
-      document.querySelector(`[data-session-card="${index}"]`)?.classList.toggle("session-disabled", !element.checked);
+      const index =
+        Number(element.dataset.advancedSessionEnabled);
+
+      advancedState.sessions[index].enabled =
+        element.checked;
+
+      document
+        .querySelector(`[data-session-card="${index}"]`)
+        ?.classList.toggle(
+          "session-disabled",
+          !element.checked
+        );
+
       recalculate();
       return;
     }
 
     if (element.dataset.advancedMirror !== undefined) {
-      const index = Number(element.dataset.advancedMirror);
-      advancedState.sessions[index].mirrorSession1 = element.checked;
+      const index =
+        Number(element.dataset.advancedMirror);
+
+      advancedState.sessions[index].mirrorSession1 =
+        element.checked;
+
       renderAdvanced();
       recalculate();
       return;
     }
 
-    if (element.dataset.advancedTimed) {
-      const [sessionIndex, key] = element.dataset.advancedTimed.split("|");
-      advancedState.sessions[Number(sessionIndex)].timed[key] = element.checked;
-      element.closest(".mission-slot")?.classList.toggle("selected", element.checked);
-      refreshMirrorSummaries();
-      recalculate();
-      return;
-    }
+    if (element.dataset.advancedSelection) {
+      const [sessionIndex, typeId, key] =
+        element.dataset.advancedSelection.split("|");
 
+      advancedState
+        .sessions[Number(sessionIndex)]
+        .selections[typeId][key] =
+        element.checked;
 
-    if (element.dataset.advancedGroup) {
-      const [sessionIndex, groupId, missionId] = element.dataset.advancedGroup.split("|");
-      advancedState.sessions[Number(sessionIndex)].groups[groupId][missionId] = element.checked;
-      element.closest(".mission-check")?.classList.toggle("selected", element.checked);
+      element
+        .closest(".mission-slot, .mission-check")
+        ?.classList.toggle(
+          "selected",
+          element.checked
+        );
+
       refreshMirrorSummaries();
       recalculate();
     }
@@ -521,10 +1045,13 @@
 
   function recalculate() {
     if (!config) return;
+
     const result = mode === "simple"
       ? Calc.calculateSimple(config, simpleState)
       : Calc.calculateAdvanced(config, advancedState);
+
     renderRewards(result);
+    writeSavedState();
   }
 
   function updateResetButton() {
@@ -535,18 +1062,31 @@
     button.setAttribute("title", label);
   }
 
-  function setMode(nextMode) {
-    if (nextMode === mode) return;
-    mode = nextMode;
-
+  function applyModeUi() {
     document.querySelector("#simplePlanner").hidden = mode !== "simple";
     document.querySelector("#advancedPlanner").hidden = mode !== "advanced";
+
     document.querySelectorAll("[data-mode]").forEach(button => {
-      button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
+      button.setAttribute(
+        "aria-pressed",
+        String(button.dataset.mode === mode)
+      );
     });
 
-    document.querySelector("#projectionLabel").textContent = mode === "simple" ? "Projected Rewards" : "Planned Rewards";
+    document.querySelector("#projectionLabel").textContent =
+      mode === "simple"
+        ? "Projected Rewards"
+        : "Planned Rewards";
+
     updateResetButton();
+  }
+
+  function setMode(nextMode) {
+    if (!["simple", "advanced"].includes(nextMode)) return;
+    if (nextMode === mode) return;
+
+    mode = nextMode;
+    applyModeUi();
     recalculate();
   }
 
@@ -561,49 +1101,23 @@
     recalculate();
   }
 
-  function getDayLongMissionsByDay(group) {
-    const result = new Map(config.schedule.days.map(day => [day.id, []]));
+  function scheduleSectionLabel(type) {
+    const display = type.schedule;
+    const sharedReward = type.reward || null;
 
-    group.missions.forEach(mission => {
-      const availability = mission.availability;
-      if (availability?.type !== "day-long") return;
-      if (!result.has(availability.dayId)) return;
-      result.get(availability.dayId).push(mission);
-    });
-
-    return result;
-  }
-
-  function sameReward(left, right) {
-    const keys = new Set([
-      ...Object.keys(left || {}),
-      ...Object.keys(right || {})
-    ]);
-
-    for (const key of keys) {
-      if ((left?.[key] || 0) !== (right?.[key] || 0)) return false;
-    }
-    return true;
-  }
-
-  function sharedGroupReward(group) {
-    if (!group.missions.length) return null;
-
-    const first = group.missions[0].reward || {};
-    return group.missions.every(mission => sameReward(first, mission.reward || {}))
-      ? first
-      : null;
-  }
-
-  function scheduleSectionLabel(display, reward, fallbackHelp = "") {
     const help = [
-      display.help || fallbackHelp,
-      reward ? `Reward: ${rewardText(reward)}.` : ""
+      display.help || type.help || "",
+      sharedReward
+        ? `Reward: ${rewardText(sharedReward)}.`
+        : ""
     ].filter(Boolean).join(" ");
 
-    return `<div class="reference-section-label" style="grid-column:1 / -1">
-      <strong>${display.label}</strong>
-      <small>${display.subtitle}</small>
+    return `<div
+      class="reference-section-label"
+      style="grid-column:1 / -1"
+    >
+      <strong>${type.label}</strong>
+      <small>${display.subtitle || ""}</small>
       ${help ? tooltip(help) : ""}
     </div>`;
   }
@@ -612,15 +1126,17 @@
     icon,
     localTime = "",
     localZone = "",
+    localDayShift = "",
     utcTime = "",
     unavailable = false,
     unavailableLabel = "No Mission"
   }) {
     if (unavailable) {
       return `<div class="reference-window unavailable">
-        <b class="reference-unavailable-mark" aria-hidden="true">—</b>
-        <span>
-          ${unavailableLabel}
+        <b class="reference-icon-placeholder" aria-hidden="true"></b>
+        <span class="reference-unavailable-copy">
+          <strong aria-hidden="true">—</strong>
+          <small>${unavailableLabel}</small>
         </span>
       </div>`;
     }
@@ -628,123 +1144,141 @@
     return `<div class="reference-window">
       <b aria-hidden="true">${icon || "⚡"}</b>
       <span>
-        <span class="reference-local-time">${localTime}<em>${localZone}</em></span>
+        <span class="reference-local-time">
+          ${localTime}
+          <em>${localZone}</em>
+          ${localDayShift ? `<b>${localDayShift}</b>` : ""}
+        </span>
         <small>${utcTime}</small>
       </span>
     </div>`;
   }
 
-  function renderWindowedSchedule(days) {
-    const display = config.missions.timed.schedule;
-    if (!display) return "";
-
-    const windows = Calc.getDisplayWindows(config);
+  function renderWindowSchedule(type, days) {
+    const windows = Calc.getDisplayWindows(config, type);
 
     const rows = windows.map(window =>
       days.map(day => {
-        const utcTime = `${window.start}–${window.end} UTC`;
+        const dayWindows =
+          type.schedule.windowsByDay?.[day.id] || [];
 
-        if (!day.windows.includes(window.id)) {
+        if (!dayWindows.includes(window.id)) {
           return referenceTimeCell({
             unavailable: true,
-            unavailableLabel: "No Windowed Mission"
+            unavailableLabel:
+              type.schedule.unavailableLabel ||
+              `No ${type.label}`
           });
         }
 
         const local = localSlot(day, window);
+
         return referenceTimeCell({
           icon: window.icon || "⚡",
           localTime: local.time,
           localZone: local.zone,
-          utcTime
+          localDayShift: localDayShift(local),
+          utcTime: `${window.start}–${window.end} UTC`
         });
       }).join("")
     ).join("");
 
     return `
-      ${scheduleSectionLabel(
-        display,
-        config.missions.timed.reward,
-        config.missions.timed.description || ""
-      )}
+      ${scheduleSectionLabel(type)}
       ${rows}`;
   }
 
-  function renderDayLongSchedule(group, days) {
-    const display = group.schedule;
-    if (!display?.enabled) return "";
-
-    const missionsByDay = getDayLongMissionsByDay(group);
-    const hasMissions = Array.from(missionsByDay.values()).some(items => items.length);
-    if (!hasMissions) return "";
-
-    const representative = group.missions.find(
-      mission => mission.availability?.type === "day-long"
+  function renderDaySchedule(type, days) {
+    const byDay = new Map(
+      days.map(day => [day.id, []])
     );
-    const fallbackUtcTime = representative
-      ? `${representative.availability.start}–${representative.availability.end} UTC`
-      : "";
+
+    (type.missions || []).forEach(mission => {
+      if (byDay.has(mission.schedule?.dayId)) {
+        byDay.get(mission.schedule.dayId).push(mission);
+      }
+    });
+
+    const representative =
+      (type.missions || [])[0] || null;
 
     const cells = days.map(day => {
-      const missions = missionsByDay.get(day.id) || [];
+      const missions = byDay.get(day.id) || [];
 
       if (!missions.length) {
         return referenceTimeCell({
           unavailable: true,
-          unavailableLabel: "No Day-Long Mission"
+          unavailableLabel:
+            type.schedule.unavailableLabel ||
+            `No ${type.label}`
         });
       }
 
-      // Schedule cells intentionally answer only "when". Mission details and
-      // the shared reward live on the section tooltip above.
       const mission = missions[0];
-      const availability = mission.availability;
+      const missionSchedule = mission.schedule;
       const local = localSlot(day, {
-        start: availability.start,
-        end: availability.end
+        start: missionSchedule.start,
+        end: missionSchedule.end
       });
 
       return referenceTimeCell({
-        icon: availability.icon || "🗓️",
+        icon:
+          missionSchedule.icon ||
+          representative?.schedule?.icon ||
+          "🗓️",
         localTime: local.time,
         localZone: local.zone,
-        utcTime: `${availability.start}–${availability.end} UTC`
+        localDayShift: localDayShift(local),
+        utcTime:
+          `${missionSchedule.start}–${missionSchedule.end} UTC`
       });
     }).join("");
 
     return `
-      ${scheduleSectionLabel(
-        display,
-        sharedGroupReward(group),
-        group.description || ""
-      )}
+      ${scheduleSectionLabel(type)}
       ${cells}`;
+  }
+
+  function renderScheduleType(type, days) {
+    switch (type.schedule?.layout) {
+      case "windows":
+        return renderWindowSchedule(type, days);
+      case "days":
+        return renderDaySchedule(type, days);
+      default:
+        return "";
+    }
   }
 
   function renderScheduleReference() {
     document.querySelector("#detectedTimezone").textContent =
-      Intl.DateTimeFormat().resolvedOptions().timeZone || "your browser timezone";
+      Intl.DateTimeFormat().resolvedOptions().timeZone ||
+      "your browser timezone";
 
-    const host = document.querySelector("#scheduleReference");
-    const days = config.schedule.days;
+    const host =
+      document.querySelector("#scheduleReference");
+
+    const days = config.pts.days;
     const columns = days.length;
 
     const headers = days.map(day => `
       <div class="reference-heading">
         <strong>${day.label}</strong>
-        <small>PTS / UTC day</small>
+        <small>WG mission day</small>
       </div>`).join("");
 
-    const configuredGroups = config.missions.groups
-      .filter(group => group.schedule?.enabled)
-      .map(group => renderDayLongSchedule(group, days))
+    const sections = config.missionTypes
+      .filter(type => Boolean(type.schedule))
+      .map(type => renderScheduleType(type, days))
       .join("");
 
     host.innerHTML = `
-      <div class="reference-days" style="--schedule-columns:${columns}">
+      <div
+        class="reference-days"
+        style="--schedule-columns:${columns}"
+      >
         ${headers}
-        ${renderWindowedSchedule(days)}
-        ${configuredGroups}
+        ${sections}
       </div>`;
   }
 
@@ -752,24 +1286,63 @@
     if (initialized) return;
     initialized = true;
     config = loadedConfig;
+    initFloatingTooltips();
 
-    simpleState = normalizeSimpleDefaults();
-    advancedState = Calc.buildAdvancedDefaults(config);
+    const savedState = readSavedState();
+
+    simpleState = restoreSimpleState(savedState?.simpleState);
+    advancedState = restoreAdvancedState(savedState?.advancedState);
+
+    mode = ["simple", "advanced"].includes(savedState?.mode)
+      ? savedState.mode
+      : "simple";
+
+    const schedulePanel = document.querySelector("#schedulePanel");
+    if (schedulePanel && typeof savedState?.scheduleOpen === "boolean") {
+      schedulePanel.open = savedState.scheduleOpen;
+    }
 
     document.querySelector("#verifiedAgainst").textContent = `Verified ${config.model.verifiedAgainst}`;
+
+    const scheduledTypes = config.missionTypes.filter(type => Boolean(type.schedule));
+    const scheduleSubtitle = document.querySelector("#scheduleSummarySubtitle");
+    if (scheduleSubtitle) {
+      scheduleSubtitle.textContent =
+        `${scheduledTypes.map(type => type.label).join(" and ")} in your local time`;
+    }
+
+    const calendarType = config.missionTypes.find(
+      type => type.controls?.advanced === "calendar"
+    );
+    if (calendarType) {
+      const shortLabel = calendarType.label.replace(/ Missions$/, "");
+      const countLabel = document.querySelector("#timedCountLabel");
+      const coverageLabel = document.querySelector("#captureRateLabel");
+      if (countLabel) countLabel.textContent = shortLabel;
+      if (coverageLabel) coverageLabel.textContent = `${shortLabel} coverage`;
+    }
+
     document.querySelector("#appContent").hidden = false;
 
     renderSimple();
     renderAdvanced();
     renderScheduleReference();
-    updateResetButton();
+    applyModeUi();
     recalculate();
 
     document.querySelectorAll("[data-mode]").forEach(button => {
       button.addEventListener("click", () => setMode(button.dataset.mode));
     });
 
-    document.querySelector("#resetPlannerButton").addEventListener("click", resetCurrentMode);
+    document.querySelector("#resetPlannerButton").addEventListener(
+      "click",
+      resetCurrentMode
+    );
+
+    document.querySelector("#schedulePanel")?.addEventListener(
+      "toggle",
+      writeSavedState
+    );
   }
 
   function showConfigError(message) {

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 4,
   "model": {
     "name": "Standard Public Test reward model",
     "verifiedAgainst": "Update 15.8",
@@ -8,7 +8,10 @@
       "First-time-only introductory rewards are intentionally excluded from projections.",
       "Mission objectives may change between updates; this model focuses on recurring missions and availability windows.",
       "The schedule is stored in UTC and localized by the browser.",
-      "Draft 8 uses bundled copies of the shared Wargaming resource artwork; production can point the same icon fields at wows-shared-data URLs."
+      "Draft 11 uses bundled copies of the shared Wargaming resource artwork; production can point the same icon fields at wows-shared-data URLs.",
+      "Mission types choose from a small set of supported UI strategies; mission data does not contain executable behavior.",
+      "A reward defined on a mission type is shared by every mission in that type; a reward defined on an individual mission applies only to that mission.",
+      "A mission type appears in the local-time schedule only when it contains a schedule object."
     ]
   },
   "resources": [
@@ -49,274 +52,268 @@
       "format": "integer"
     }
   ],
-  "schedule": {
+  "pts": {
+    "timezone": "UTC",
     "sessionCount": 2,
     "sessionGapDays": 7,
-    "timedWindowsUtc": [
-      {
-        "id": "morning",
-        "label": "Morning",
-        "icon": "🌅",
-        "start": "11:00",
-        "end": "15:00"
-      },
-      {
-        "id": "afternoon",
-        "label": "Afternoon",
-        "icon": "☀️",
-        "start": "17:00",
-        "end": "21:00"
-      },
-      {
-        "id": "evening",
-        "label": "Evening",
-        "icon": "🌙",
-        "start": "22:00",
-        "end": "02:00"
-      }
-    ],
     "days": [
       {
         "id": "thu",
         "label": "Thursday",
         "shortLabel": "Thu",
-        "offset": 0,
-        "windows": [
-          "afternoon",
-          "evening"
-        ]
+        "offsetDays": 0
       },
       {
         "id": "fri",
         "label": "Friday",
         "shortLabel": "Fri",
-        "offset": 1,
-        "windows": [
-          "morning",
-          "afternoon",
-          "evening"
-        ]
+        "offsetDays": 1
       },
       {
         "id": "sat",
         "label": "Saturday",
         "shortLabel": "Sat",
-        "offset": 2,
-        "windows": [
-          "morning",
-          "afternoon",
-          "evening"
-        ]
+        "offsetDays": 2
       },
       {
         "id": "sun",
         "label": "Sunday",
         "shortLabel": "Sun",
-        "offset": 3,
-        "windows": [
-          "morning",
-          "afternoon",
-          "evening"
-        ]
+        "offsetDays": 3
       },
       {
         "id": "mon",
         "label": "Monday",
         "shortLabel": "Mon",
-        "offset": 4,
-        "windows": [
-          "morning",
-          "afternoon",
-          "evening"
-        ]
+        "offsetDays": 4
       }
     ]
   },
-  "missions": {
-    "login": {
-      "id": "login",
+  "automaticRewards": {
+    "sessionLogin": {
       "label": "Session login",
-      "description": "Automatically awarded the first time you log in during each enabled Public Test session.",
+      "help": "Automatically awarded the first time you log in during each enabled Public Test session.",
       "reward": {
         "coal": 750,
         "doubloons": 100
       }
-    },
-    "timed": {
-      "id": "timed",
-      "label": "Timed Special Task",
-      "description": "The objective chain can vary, but the recurring reward package is the main time-sensitive PTS reward.",
+    }
+  },
+  "missionTypes": [
+    {
+      "id": "windowed",
+      "label": "Windowed Missions",
+      "help": "The objective chain can vary, but the recurring reward package is the main time-sensitive PTS reward.",
       "reward": {
         "coal": 700,
         "freeXp": 5000,
         "credits": 800000,
         "eliteCommanderXp": 10000
       },
+      "controls": {
+        "simple": "window-frequency",
+        "advanced": "calendar"
+      },
+      "simple": {
+        "help": "Choose the PTS days you expect to play and how often you expect to catch each recurring mission window."
+      },
       "schedule": {
-        "label": "Windowed Missions",
+        "layout": "windows",
         "subtitle": "Play during one of the listed four-hour windows",
-        "help": "Every Windowed Mission uses the same recurring reward package."
-      }
-    },
-    "groups": [
-      {
-        "id": "daily",
-        "label": "Day-Long Missions",
-        "description": "Recurring missions that remain available for a full PTS day instead of only a four-hour timed window.",
-        "simple": {
-          "enabled": true,
-          "label": "Day-Long Missions",
-          "help": "How often do you expect to complete the longer Day 2 and Day 3 missions? Exact objectives may vary between PTS updates."
-        },
-        "missions": [
+        "help": "Every Windowed Mission uses the same recurring reward package.",
+        "unavailableLabel": "No Windowed Mission",
+        "windows": [
           {
-            "id": "daily-day-2",
-            "label": "Day 2 mission",
-            "description": "Historically available throughout Day 2 of each session. Exact objective may vary. Historically refreshes at 02:00 UTC.",
-            "reward": {
-              "coal": 1000,
-              "freeXp": 2500,
-              "credits": 500000,
-              "communityTokens": 200
-            },
-            "availability": {
-              "type": "day-long",
-              "dayId": "fri",
-              "start": "02:00",
-              "end": "02:00",
-              "icon": "🗓️"
-            }
+            "id": "morning",
+            "label": "Morning",
+            "icon": "🌅",
+            "start": "11:00",
+            "end": "15:00"
           },
           {
-            "id": "daily-day-3",
-            "label": "Day 3 mission",
-            "description": "Historically available throughout Day 3 of each session. Exact objective may vary. Historically refreshes at 02:00 UTC.",
-            "reward": {
-              "coal": 1000,
-              "freeXp": 2500,
-              "credits": 500000,
-              "communityTokens": 200
-            },
-            "availability": {
-              "type": "day-long",
-              "dayId": "sat",
-              "start": "02:00",
-              "end": "02:00",
-              "icon": "🗓️"
-            }
+            "id": "afternoon",
+            "label": "Afternoon",
+            "icon": "☀️",
+            "start": "17:00",
+            "end": "21:00"
+          },
+          {
+            "id": "evening",
+            "label": "Evening",
+            "icon": "🌙",
+            "start": "22:00",
+            "end": "02:00"
           }
         ],
-        "schedule": {
-          "enabled": true,
-          "label": "Day-Long Missions",
-          "subtitle": "Available for the full listed mission day",
-          "help": "Every Day-Long Mission currently uses the same recurring reward package."
+        "windowsByDay": {
+          "thu": [
+            "afternoon",
+            "evening"
+          ],
+          "fri": [
+            "morning",
+            "afternoon",
+            "evening"
+          ],
+          "sat": [
+            "morning",
+            "afternoon",
+            "evening"
+          ],
+          "sun": [
+            "morning",
+            "afternoon",
+            "evening"
+          ],
+          "mon": [
+            "morning",
+            "afternoon",
+            "evening"
+          ]
         }
-      },
-      {
-        "id": "round-community-tokens",
-        "label": "Round-long Community Token missions",
-        "description": "Longer missions whose objectives vary by update. In the standard model these reward Community Tokens and can be completed once per session.",
-        "simple": {
-          "enabled": true,
-          "label": "Round-long Community Token missions",
-          "help": "How much of the longer Community Token mission set do you expect to finish? Advanced mode lets you choose the individual missions."
-        },
-        "missions": [
-          {
-            "id": "ct-100",
-            "label": "100 CT mission",
-            "description": "Objective varies by update.",
-            "reward": {
-              "communityTokens": 100
-            },
-            "availability": {
-              "type": "session-long"
-            }
-          },
-          {
-            "id": "ct-200",
-            "label": "200 CT mission",
-            "description": "Objective varies by update.",
-            "reward": {
-              "communityTokens": 200
-            },
-            "availability": {
-              "type": "session-long"
-            }
-          },
-          {
-            "id": "ct-1000",
-            "label": "1,000 CT mission",
-            "description": "Usually tied to one of the major features being tested.",
-            "reward": {
-              "communityTokens": 1000
-            },
-            "availability": {
-              "type": "session-long"
-            }
-          },
-          {
-            "id": "ct-500",
-            "label": "500 CT mission",
-            "description": "Usually tied to a secondary feature or battle type being tested.",
-            "reward": {
-              "communityTokens": 500
-            },
-            "availability": {
-              "type": "session-long"
-            }
-          },
-          {
-            "id": "ct-450",
-            "label": "450 CT mission",
-            "description": "Objective varies by update.",
-            "reward": {
-              "communityTokens": 450
-            },
-            "availability": {
-              "type": "session-long"
-            }
-          },
-          {
-            "id": "ct-1600",
-            "label": "1,600 CT Special Task",
-            "description": "A larger recurring round mission whose objective changes between updates.",
-            "reward": {
-              "communityTokens": 1600
-            },
-            "availability": {
-              "type": "session-long"
-            }
-          }
-        ]
       }
-    ]
-  },
+    },
+    {
+      "id": "dayLong",
+      "label": "Day-Long Missions",
+      "help": "Recurring missions that remain available for a full PTS day instead of only a four-hour timed window.",
+      "reward": {
+        "coal": 1000,
+        "freeXp": 2500,
+        "credits": 500000,
+        "communityTokens": 200
+      },
+      "controls": {
+        "simple": "completion-frequency",
+        "advanced": "list"
+      },
+      "simple": {
+        "help": "How often do you expect to complete the longer Day 2 and Day 3 missions? Exact objectives may vary between PTS updates."
+      },
+      "schedule": {
+        "layout": "days",
+        "subtitle": "Available for the full listed mission day",
+        "help": "Every Day-Long Mission currently uses the same recurring reward package.",
+        "unavailableLabel": "No Day-Long Mission"
+      },
+      "missions": [
+        {
+          "id": "day2",
+          "label": "Day 2 Mission",
+          "help": "Historically available throughout Day 2 of each session. Exact objective may vary. Historically refreshes at 02:00 UTC.",
+          "schedule": {
+            "dayId": "fri",
+            "start": "02:00",
+            "end": "02:00",
+            "icon": "🗓️"
+          }
+        },
+        {
+          "id": "day3",
+          "label": "Day 3 Mission",
+          "help": "Historically available throughout Day 3 of each session. Exact objective may vary. Historically refreshes at 02:00 UTC.",
+          "schedule": {
+            "dayId": "sat",
+            "start": "02:00",
+            "end": "02:00",
+            "icon": "🗓️"
+          }
+        }
+      ]
+    },
+    {
+      "id": "roundLong",
+      "label": "Round-Long Community Token Missions",
+      "help": "Longer missions whose objectives vary by update. In the standard model these reward Community Tokens and can be completed once per session.",
+      "controls": {
+        "simple": "completion-frequency",
+        "advanced": "list"
+      },
+      "simple": {
+        "help": "How much of the longer Community Token mission set do you expect to finish? Advanced mode lets you choose the individual missions."
+      },
+      "missions": [
+        {
+          "id": "ct-100",
+          "label": "100 CT mission",
+          "help": "Objective varies by update.",
+          "reward": {
+            "communityTokens": 100
+          }
+        },
+        {
+          "id": "ct-200",
+          "label": "200 CT mission",
+          "help": "Objective varies by update.",
+          "reward": {
+            "communityTokens": 200
+          }
+        },
+        {
+          "id": "ct-1000",
+          "label": "1,000 CT mission",
+          "help": "Usually tied to one of the major features being tested.",
+          "reward": {
+            "communityTokens": 1000
+          }
+        },
+        {
+          "id": "ct-500",
+          "label": "500 CT mission",
+          "help": "Usually tied to a secondary feature or battle type being tested.",
+          "reward": {
+            "communityTokens": 500
+          }
+        },
+        {
+          "id": "ct-450",
+          "label": "450 CT mission",
+          "help": "Objective varies by update.",
+          "reward": {
+            "communityTokens": 450
+          }
+        },
+        {
+          "id": "ct-1600",
+          "label": "1,600 CT Special Task",
+          "help": "A larger recurring round mission whose objective changes between updates.",
+          "reward": {
+            "communityTokens": 1600
+          }
+        }
+      ]
+    }
+  ],
   "simpleDefaults": {
     "sessions": [
       false,
       false
     ],
-    "days": {
-      "thu": false,
-      "fri": false,
-      "sat": false,
-      "sun": false,
-      "mon": false
-    },
-    "windowRates": {
-      "morning": 0,
-      "afternoon": 0,
-      "evening": 0
-    },
-    "missionGroupRates": {
-      "daily": 0,
-      "round-community-tokens": 0
+    "missionTypes": {
+      "windowed": {
+        "days": {
+          "thu": false,
+          "fri": false,
+          "sat": false,
+          "sun": false,
+          "mon": false
+        },
+        "rates": {
+          "morning": 0,
+          "afternoon": 0,
+          "evening": 0
+        }
+      },
+      "dayLong": {
+        "rate": 0
+      },
+      "roundLong": {
+        "rate": 0
+      }
     }
   },
   "advancedDefaults": {
-    "playSessions": true,
-    "mirrorSession1": true
+    "sessionsEnabled": true,
+    "mirrorLaterSessions": true
   }
 }

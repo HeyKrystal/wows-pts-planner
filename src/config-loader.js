@@ -1,158 +1,297 @@
 (() => {
+  const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+  const SIMPLE_CONTROLS = new Set([
+    "window-frequency",
+    "completion-frequency",
+    "none"
+  ]);
+  const ADVANCED_CONTROLS = new Set(["calendar", "list"]);
+  const SCHEDULE_LAYOUTS = new Set(["windows", "days"]);
+
+  function validateReward(reward, resourceIds, problems, label) {
+    if (!reward || typeof reward !== "object") {
+      problems.push(`${label} needs a reward object.`);
+      return;
+    }
+
+    Object.keys(reward).forEach(key => {
+      if (!resourceIds.has(key)) {
+        problems.push(`${label} references unknown resource: ${key}`);
+      }
+    });
+  }
+
   function validateConfig(config) {
     const problems = [];
 
-    if (!config || typeof config !== "object") problems.push("Config must be an object.");
-    if (config?.schemaVersion !== 2) problems.push("Unsupported or missing schemaVersion.");
-    if (!Array.isArray(config?.resources) || !config.resources.length) problems.push("resources must be a non-empty array.");
-    if (!Number.isInteger(config?.schedule?.sessionCount) || config.schedule.sessionCount < 1) problems.push("schedule.sessionCount must be at least 1.");
-    if (!Array.isArray(config?.schedule?.days) || !config.schedule.days.length) problems.push("schedule.days must be a non-empty array.");
-    if (!Array.isArray(config?.schedule?.timedWindowsUtc) || !config.schedule.timedWindowsUtc.length) problems.push("schedule.timedWindowsUtc must be a non-empty array.");
-    if (!config?.missions?.login?.reward) problems.push("missions.login.reward is required.");
-    if (!config?.missions?.timed?.reward) problems.push("missions.timed.reward is required.");
-    if (!Array.isArray(config?.missions?.groups)) problems.push("missions.groups must be an array.");
-
-    (config?.resources || []).forEach(resource => {
-      if (!resource.id) problems.push("Every resource needs an id.");
-      if (!resource.label) problems.push(`Resource ${resource.id || "?"} needs a label.`);
-      if (resource.icon !== undefined && typeof resource.icon !== "string") {
-        problems.push(`Resource ${resource.id || "?"} icon must be a string path or URL.`);
-      }
-    });
-
-
-    const scheduleDisplays = [
-      config?.missions?.timed?.schedule,
-      ...(config?.missions?.groups || []).map(group => group.schedule).filter(Boolean)
-    ];
-
-    scheduleDisplays.forEach((display, index) => {
-      if (!display.label || typeof display.label !== "string") {
-        problems.push(`Schedule display ${index + 1} needs a label.`);
-      }
-      if (!display.subtitle || typeof display.subtitle !== "string") {
-        problems.push(`Schedule display ${index + 1} needs a subtitle.`);
-      }
-      if (display.help !== undefined && typeof display.help !== "string") {
-        problems.push(`Schedule display ${index + 1} help must be a string.`);
-      }
-    });
-
-    const configuredDayIds = new Set((config?.schedule?.days || []).map(day => day.id));
-    (config?.missions?.groups || []).forEach(group => {
-      (group.missions || []).forEach(mission => {
-        const availability = mission.availability;
-        if (!availability) return;
-
-        if (!["day-long", "session-long"].includes(availability.type)) {
-          problems.push(
-            `Mission ${mission.id || "?"} has unsupported availability type ${availability.type}.`
-          );
-        }
-
-        if (availability.type === "day-long") {
-          if (!availability.dayId || !configuredDayIds.has(availability.dayId)) {
-            problems.push(
-              `Mission ${mission.id || "?"} needs a valid dayId for day-long availability.`
-            );
-          }
-
-          const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
-          if (!timePattern.test(availability.start || "")) {
-            problems.push(
-              `Mission ${mission.id || "?"} needs a valid HH:MM UTC start time for day-long availability.`
-            );
-          }
-          if (!timePattern.test(availability.end || "")) {
-            problems.push(
-              `Mission ${mission.id || "?"} needs a valid HH:MM UTC end time for day-long availability.`
-            );
-          }
-        }
-      });
-    });
-
-    const resourceIds = new Set((config?.resources || []).map(resource => resource.id));
-    const rewardObjects = [
-      config?.missions?.login?.reward,
-      config?.missions?.timed?.reward,
-      ...(config?.missions?.groups || []).flatMap(group =>
-        (group.missions || []).map(mission => mission.reward)
-      )
-    ].filter(Boolean);
-
-    rewardObjects.forEach(reward => {
-      Object.keys(reward).forEach(key => {
-        if (!resourceIds.has(key)) problems.push(`Reward references unknown resource: ${key}`);
-      });
-    });
-
-    const windowIds = new Set((config?.schedule?.timedWindowsUtc || []).map(window => window.id));
-    (config?.schedule?.days || []).forEach(day => {
-      if (!Array.isArray(day.windows)) problems.push(`Day ${day.id || "?"} must define a windows array.`);
-      (day.windows || []).forEach(windowId => {
-        if (!windowIds.has(windowId)) problems.push(`Day ${day.id} references unknown window: ${windowId}`);
-      });
-    });
-
-    const groupIds = new Set();
-    (config?.missions?.groups || []).forEach(group => {
-      if (!group.id) problems.push("Every mission group needs an id.");
-      if (groupIds.has(group.id)) problems.push(`Duplicate mission group id: ${group.id}`);
-      groupIds.add(group.id);
-      if (!Array.isArray(group.missions)) problems.push(`Mission group ${group.id || "?"} must define a missions array.`);
-    });
-
-    const defaults = config?.simpleDefaults;
-    if (!defaults || typeof defaults !== "object") problems.push("simpleDefaults is required.");
-    if (defaults && !Array.isArray(defaults.sessions)) problems.push("simpleDefaults.sessions must be an array.");
-    if (defaults && typeof defaults.days !== "object") problems.push("simpleDefaults.days must be an object.");
-    if (defaults && typeof defaults.windowRates !== "object") problems.push("simpleDefaults.windowRates must be an object.");
-    if (defaults && typeof defaults.missionGroupRates !== "object") problems.push("simpleDefaults.missionGroupRates must be an object.");
-
-    if (defaults && Array.isArray(defaults.sessions) && defaults.sessions.length !== config.schedule.sessionCount) {
-      problems.push("simpleDefaults.sessions must contain one value per configured session.");
+    if (!config || typeof config !== "object") {
+      problems.push("Config must be an object.");
     }
 
-    (config?.schedule?.days || []).forEach(day => {
-      if (typeof defaults?.days?.[day.id] !== "boolean") {
-        problems.push(`simpleDefaults.days is missing a boolean for ${day.id}.`);
+    if (config?.schemaVersion !== 4) {
+      problems.push("Unsupported or missing schemaVersion.");
+    }
+
+    if (!Array.isArray(config?.resources) || !config.resources.length) {
+      problems.push("resources must be a non-empty array.");
+    }
+
+    const resourceIds = new Set();
+    (config?.resources || []).forEach(resource => {
+      if (!resource.id) problems.push("Every resource needs an id.");
+      if (resourceIds.has(resource.id)) {
+        problems.push(`Duplicate resource id: ${resource.id}`);
+      }
+      resourceIds.add(resource.id);
+
+      if (!resource.label) {
+        problems.push(`Resource ${resource.id || "?"} needs a label.`);
+      }
+
+      if (
+        resource.icon !== undefined &&
+        typeof resource.icon !== "string"
+      ) {
+        problems.push(
+          `Resource ${resource.id || "?"} icon must be a string path or URL.`
+        );
       }
     });
 
-    const usedWindowIds = new Set((config?.schedule?.days || []).flatMap(day => day.windows || []));
-    usedWindowIds.forEach(windowId => {
-      if (typeof defaults?.windowRates?.[windowId] !== "number") {
-        problems.push(`simpleDefaults.windowRates is missing a numeric rate for ${windowId}.`);
+    if (config?.pts?.timezone !== "UTC") {
+      problems.push("pts.timezone must currently be UTC.");
+    }
+
+    if (
+      !Number.isInteger(config?.pts?.sessionCount) ||
+      config.pts.sessionCount < 1
+    ) {
+      problems.push("pts.sessionCount must be at least 1.");
+    }
+
+    if (!Array.isArray(config?.pts?.days) || !config.pts.days.length) {
+      problems.push("pts.days must be a non-empty array.");
+    }
+
+    const dayIds = new Set();
+    (config?.pts?.days || []).forEach(day => {
+      if (
+        !day.id ||
+        !day.label ||
+        !Number.isInteger(day.offsetDays)
+      ) {
+        problems.push(`Invalid PTS day: ${JSON.stringify(day)}`);
+      }
+
+      if (dayIds.has(day.id)) {
+        problems.push(`Duplicate PTS day id: ${day.id}`);
+      }
+      dayIds.add(day.id);
+    });
+
+    validateReward(
+      config?.automaticRewards?.sessionLogin?.reward,
+      resourceIds,
+      problems,
+      "automaticRewards.sessionLogin"
+    );
+
+    if (!Array.isArray(config?.missionTypes) || !config.missionTypes.length) {
+      problems.push("missionTypes must be a non-empty array.");
+    }
+
+    const typeIds = new Set();
+
+    (config?.missionTypes || []).forEach(type => {
+      const typeLabel = `Mission type ${type?.id || "?"}`;
+
+      if (!type.id) problems.push("Every mission type needs an id.");
+      if (typeIds.has(type.id)) {
+        problems.push(`Duplicate mission type id: ${type.id}`);
+      }
+      typeIds.add(type.id);
+
+      if (!type.label) problems.push(`${typeLabel} needs a label.`);
+
+      if (!SIMPLE_CONTROLS.has(type.controls?.simple || "none")) {
+        problems.push(
+          `${typeLabel} has unsupported simple control: ${type.controls?.simple}`
+        );
+      }
+
+      if (!ADVANCED_CONTROLS.has(type.controls?.advanced)) {
+        problems.push(
+          `${typeLabel} has unsupported advanced control: ${type.controls?.advanced}`
+        );
+      }
+
+      const missions = type.missions || [];
+      const hasSharedReward = Boolean(type.reward);
+      const missionsWithRewards = missions.filter(mission => mission.reward);
+
+      if (hasSharedReward && missionsWithRewards.length) {
+        problems.push(
+          `${typeLabel} cannot define both a shared type reward and per-mission rewards.`
+        );
+      }
+
+      if (hasSharedReward) {
+        validateReward(type.reward, resourceIds, problems, typeLabel);
+      } else if (missions.length) {
+        missions.forEach(mission => {
+          validateReward(
+            mission.reward,
+            resourceIds,
+            problems,
+            `${typeLabel} mission ${mission.id || "?"}`
+          );
+        });
+      } else {
+        problems.push(`${typeLabel} needs either a shared reward or rewarded missions.`);
+      }
+
+      if (type.controls?.advanced === "list") {
+        if (!Array.isArray(type.missions) || !type.missions.length) {
+          problems.push(`${typeLabel} list control needs missions.`);
+        }
+
+        const missionIds = new Set();
+        missions.forEach(mission => {
+          if (!mission.id || !mission.label) {
+            problems.push(
+              `${typeLabel} contains an invalid mission: ${JSON.stringify(mission)}`
+            );
+          }
+
+          if (missionIds.has(mission.id)) {
+            problems.push(
+              `${typeLabel} contains duplicate mission id: ${mission.id}`
+            );
+          }
+          missionIds.add(mission.id);
+        });
+      }
+
+      const schedule = type.schedule;
+      if (!schedule) return;
+
+      if (!SCHEDULE_LAYOUTS.has(schedule.layout)) {
+        problems.push(
+          `${typeLabel} has unsupported schedule layout: ${schedule.layout}`
+        );
+      }
+
+      if (!schedule.subtitle) {
+        problems.push(`${typeLabel} schedule needs a subtitle.`);
+      }
+
+      if (schedule.layout === "windows") {
+        if (!Array.isArray(schedule.windows) || !schedule.windows.length) {
+          problems.push(`${typeLabel} window schedule needs windows.`);
+        }
+
+        const windowIds = new Set();
+        (schedule.windows || []).forEach(window => {
+          if (
+            !window.id ||
+            !TIME_PATTERN.test(window.start || "") ||
+            !TIME_PATTERN.test(window.end || "")
+          ) {
+            problems.push(
+              `${typeLabel} has an invalid window: ${JSON.stringify(window)}`
+            );
+          }
+          windowIds.add(window.id);
+        });
+
+        Object.entries(schedule.windowsByDay || {}).forEach(
+          ([dayId, windows]) => {
+            if (!dayIds.has(dayId)) {
+              problems.push(`${typeLabel} references unknown PTS day: ${dayId}`);
+            }
+
+            if (!Array.isArray(windows)) {
+              problems.push(
+                `${typeLabel} day ${dayId} must contain a window array.`
+              );
+              return;
+            }
+
+            windows.forEach(windowId => {
+              if (!windowIds.has(windowId)) {
+                problems.push(
+                  `${typeLabel} day ${dayId} references unknown window: ${windowId}`
+                );
+              }
+            });
+          }
+        );
+      }
+
+      if (schedule.layout === "days") {
+        if (!Array.isArray(type.missions) || !type.missions.length) {
+          problems.push(`${typeLabel} day schedule needs missions.`);
+        }
+
+        missions.forEach(mission => {
+          if (!dayIds.has(mission.schedule?.dayId)) {
+            problems.push(
+              `${typeLabel} mission ${mission.id || "?"} needs a valid schedule.dayId.`
+            );
+          }
+
+          if (
+            !TIME_PATTERN.test(mission.schedule?.start || "") ||
+            !TIME_PATTERN.test(mission.schedule?.end || "")
+          ) {
+            problems.push(
+              `${typeLabel} mission ${mission.id || "?"} needs valid HH:MM schedule start/end times.`
+            );
+          }
+        });
       }
     });
 
-    (config?.missions?.groups || []).forEach(group => {
-      if (group.simple?.enabled === false) return;
-      if (typeof defaults?.missionGroupRates?.[group.id] !== "number") {
-        problems.push(`simpleDefaults.missionGroupRates is missing a numeric rate for ${group.id}.`);
+    const simpleDefaults = config?.simpleDefaults?.missionTypes || {};
+    config.missionTypes.forEach(type => {
+      if (!simpleDefaults[type.id]) {
+        problems.push(`simpleDefaults.missionTypes is missing ${type.id}.`);
       }
     });
 
-    if (problems.length) throw new Error(problems.join(" "));
+    if (problems.length) {
+      throw new Error(problems.join(" "));
+    }
   }
 
   async function loadConfig() {
-    try {
-      const response = await fetch("data/pts-config.json", { cache: "no-store" });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const config = await response.json();
-      validateConfig(config);
-      window.PTS_CONFIG = config;
-      window.dispatchEvent(new CustomEvent("pts-config-ready", { detail: config }));
-    } catch (error) {
-      const message = location.protocol === "file:"
-        ? "Could not load data/pts-config.json from file://. Open the draft with VS Code Live Server (or another local HTTP server) so the JSON model can be fetched."
-        : `Could not load the PTS configuration: ${error.message}`;
-      window.PTS_CONFIG_ERROR = message;
-      window.dispatchEvent(new CustomEvent("pts-config-error", { detail: message }));
+    const response = await fetch("data/pts-config.json", {
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Could not load data/pts-config.json (HTTP ${response.status}).`
+      );
     }
+
+    const config = await response.json();
+    validateConfig(config);
+    return config;
   }
 
-  loadConfig();
+  loadConfig()
+    .then(config => {
+      window.PTS_CONFIG = config;
+      window.dispatchEvent(
+        new CustomEvent("pts-config-ready", { detail: config })
+      );
+    })
+    .catch(error => {
+      console.error(error);
+      window.PTS_CONFIG_ERROR = error.message;
+      window.dispatchEvent(
+        new CustomEvent("pts-config-error", { detail: error.message })
+      );
+    });
 })();
