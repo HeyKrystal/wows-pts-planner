@@ -1,11 +1,19 @@
 (() => {
   const Calc = window.PTS_CALCULATOR;
-  const rateOptions = [
+  const windowRateOptions = [
     { value: 0, label: "Never — 0%" },
-    { value: 0.25, label: "Rarely — 25%" },
-    { value: 0.5, label: "Sometimes — 50%" },
-    { value: 0.75, label: "Usually — 75%" },
-    { value: 1, label: "Always — 100%" }
+    { value: 0.25, label: "Occasionally — 25%" },
+    { value: 0.5, label: "About Half — 50%" },
+    { value: 0.75, label: "Most Days — 75%" },
+    { value: 1, label: "Every Selected Day — 100%" }
+  ];
+
+  const completionRateOptions = [
+    { value: 0, label: "None — 0%" },
+    { value: 0.25, label: "About 25%" },
+    { value: 0.5, label: "About Half — 50%" },
+    { value: 0.75, label: "About 75%" },
+    { value: 1, label: "All — 100%" }
   ];
 
   const STORAGE_KEY = "wows-pts-reward-planner.state";
@@ -65,7 +73,7 @@
 
   function validRate(value) {
     const numeric = Number(value);
-    return rateOptions.some(option => option.value === numeric)
+    return windowRateOptions.some(option => option.value === numeric)
       ? numeric
       : null;
   }
@@ -83,6 +91,20 @@
         : defaultValue
     );
 
+    // Draft 15 and earlier stored day selections under the Windowed mission
+    // type. Prefer the new top-level location, but migrate the old shape when
+    // restoring an existing browser save.
+    const savedDays =
+      savedState.days ||
+      savedState.missionTypes?.windowed?.days ||
+      {};
+
+    Object.keys(restored.days).forEach(dayId => {
+      if (typeof savedDays[dayId] === "boolean") {
+        restored.days[dayId] = savedDays[dayId];
+      }
+    });
+
     config.missionTypes.forEach(type => {
       const savedType = savedState.missionTypes?.[type.id];
       const restoredType = restored.missionTypes[type.id];
@@ -90,18 +112,39 @@
       if (!savedType || !restoredType) return;
 
       if (type.controls?.simple === "window-frequency") {
-        Object.keys(restoredType.days).forEach(dayId => {
-          if (typeof savedType.days?.[dayId] === "boolean") {
-            restoredType.days[dayId] = savedType.days[dayId];
-          }
-        });
-
         Object.keys(restoredType.rates).forEach(windowId => {
           const rate = validRate(savedType.rates?.[windowId]);
           if (rate !== null) {
             restoredType.rates[windowId] = rate;
           }
         });
+      }
+
+      if (type.controls?.simple === "day-mission-checkboxes") {
+        Object.keys(restoredType.selections).forEach(missionId => {
+          if (typeof savedType.selections?.[missionId] === "boolean") {
+            restoredType.selections[missionId] =
+              savedType.selections[missionId];
+          }
+        });
+      }
+
+      if (type.controls?.simple === "mission-count") {
+        const missionTotal = (type.missions || []).length;
+
+        if (Number.isInteger(savedType.count)) {
+          restoredType.count = Math.max(
+            0,
+            Math.min(savedType.count, missionTotal)
+          );
+        } else {
+          // Draft 18 and earlier used a percentage for this mission type.
+          // Migrate conservatively by flooring the equivalent mission count.
+          const oldRate = validRate(savedType.rate);
+          if (oldRate !== null) {
+            restoredType.count = Math.floor(oldRate * missionTotal);
+          }
+        }
       }
 
       if (type.controls?.simple === "completion-frequency") {
@@ -405,12 +448,16 @@
     document.body.append(floatingTooltip);
 
     document.addEventListener("pointerover", event => {
-      const trigger = event.target.closest?.(".tooltip");
+      const trigger = event.target.closest?.(
+        ".tooltip, [data-tooltip-trigger]"
+      );
       if (trigger) showFloatingTooltip(trigger);
     });
 
     document.addEventListener("pointerout", event => {
-      const trigger = event.target.closest?.(".tooltip");
+      const trigger = event.target.closest?.(
+        ".tooltip, [data-tooltip-trigger]"
+      );
       if (
         trigger &&
         trigger === activeTooltipTrigger &&
@@ -421,12 +468,16 @@
     });
 
     document.addEventListener("focusin", event => {
-      const trigger = event.target.closest?.(".tooltip");
+      const trigger = event.target.closest?.(
+        ".tooltip, [data-tooltip-trigger]"
+      );
       if (trigger) showFloatingTooltip(trigger);
     });
 
     document.addEventListener("focusout", event => {
-      const trigger = event.target.closest?.(".tooltip");
+      const trigger = event.target.closest?.(
+        ".tooltip, [data-tooltip-trigger]"
+      );
       if (trigger && trigger === activeTooltipTrigger) {
         hideFloatingTooltip();
       }
@@ -449,7 +500,9 @@
     document.addEventListener("pointerdown", event => {
       if (
         activeTooltipTrigger &&
-        !event.target.closest?.(".tooltip")
+        !event.target.closest?.(
+          ".tooltip, [data-tooltip-trigger]"
+        )
       ) {
         hideFloatingTooltip();
       }
@@ -476,10 +529,39 @@
     });
   }
 
-  function rateSelect(current, attribute) {
-    return `<select class="select-control" ${attribute}>${rateOptions.map(option =>
+  function rateSelect(current, attribute, options = windowRateOptions) {
+    return `<select class="select-control" ${attribute}>${options.map(option =>
       `<option value="${option.value}" ${Number(current) === option.value ? "selected" : ""}>${option.label}</option>`
     ).join("")}</select>`;
+  }
+
+  function missionCountSelect(type, current) {
+    const missionTotal = (type.missions || []).length;
+
+    const options = Array.from(
+      { length: missionTotal + 1 },
+      (_, count) => {
+        let label;
+
+        if (count === 0) {
+          label = "None";
+        } else if (count === missionTotal) {
+          label = `All ${missionTotal}`;
+        } else {
+          label = `${count} mission${count === 1 ? "" : "s"}`;
+        }
+
+        return `<option
+          value="${count}"
+          ${Number(current) === count ? "selected" : ""}
+        >${label}</option>`;
+      }
+    ).join("");
+
+    return `<select
+      class="select-control"
+      data-simple-type-count="${type.id}"
+    >${options}</select>`;
   }
 
   function normalizeSimpleDefaults() {
@@ -490,25 +572,47 @@
       (_, index) => defaults.sessions?.[index] ?? false
     );
 
+    defaults.days ||= {};
+    config.pts.days.forEach(day => {
+      if (defaults.days[day.id] === undefined) {
+        defaults.days[day.id] = false;
+      }
+    });
+
     defaults.missionTypes ||= {};
 
     config.missionTypes.forEach(type => {
       const current = defaults.missionTypes[type.id] || {};
 
       if (type.controls?.simple === "window-frequency") {
-        current.days ||= {};
-        config.pts.days.forEach(day => {
-          if (current.days[day.id] === undefined) {
-            current.days[day.id] = false;
-          }
-        });
-
         current.rates ||= {};
         (type.schedule?.windows || []).forEach(window => {
           if (current.rates[window.id] === undefined) {
             current.rates[window.id] = 0;
           }
         });
+      }
+
+      if (type.controls?.simple === "day-mission-checkboxes") {
+        current.selections ||= {};
+        (type.missions || []).forEach(mission => {
+          if (current.selections[mission.id] === undefined) {
+            current.selections[mission.id] = false;
+          }
+        });
+      }
+
+      if (type.controls?.simple === "mission-count") {
+        const missionTotal = (type.missions || []).length;
+
+        if (!Number.isInteger(current.count)) {
+          current.count = 0;
+        }
+
+        current.count = Math.max(
+          0,
+          Math.min(current.count, missionTotal)
+        );
       }
 
       if (type.controls?.simple === "completion-frequency") {
@@ -523,16 +627,6 @@
 
   function renderSimpleWindowType(type) {
     const state = simpleState.missionTypes[type.id];
-
-    const dayChecks = config.pts.days.map(day => `
-      <label class="pill-check">
-        <input
-          type="checkbox"
-          data-simple-type-day="${type.id}|${day.id}"
-          ${state.days[day.id] ? "checked" : ""}
-        >
-        <span>${day.shortLabel || day.label}</span>
-      </label>`).join("");
 
     const windowRows = Calc.getDisplayWindows(config, type).map(window => `
       <label class="window-row">
@@ -560,21 +654,120 @@
           )}
         </div>
 
-        <div class="simple-type-block">
-          <h4>Days You Expect to Play</h4>
-          <div class="day-toggles">${dayChecks}</div>
-        </div>
+        <p class="basic-window-prompt">On the days you selected, how often do you expect to have enough focused playtime to complete a mission during each window?</p>
 
         <div class="window-list">${windowRows}</div>
       </div>`;
   }
 
-  function renderSimpleCompletionTypes(types) {
+  function renderSimpleDays() {
+    const dayChecks = config.pts.days.map(day => `
+      <label class="pill-check">
+        <input
+          type="checkbox"
+          data-simple-day="${day.id}"
+          ${simpleState.days[day.id] ? "checked" : ""}
+        >
+        <span>${day.shortLabel || day.label}</span>
+      </label>`).join("");
+
+    return `
+      <div class="subpanel">
+        <div class="subpanel-heading">
+          <h3>Days You Expect to Play</h3>
+          ${tooltip(
+            "These days are used throughout Basic mode. They determine which Windowed Mission opportunities count and which Day-Long Missions are available."
+          )}
+        </div>
+
+        <div class="day-toggles">${dayChecks}</div>
+      </div>`;
+  }
+
+  function renderSimpleDayMissionType(type) {
+    const state = simpleState.missionTypes[type.id];
+
+    const dayById = new Map(
+      config.pts.days.map(day => [day.id, day])
+    );
+
+    const cards = (type.missions || []).map(mission => {
+      const schedule = mission.schedule;
+      const day = dayById.get(schedule?.dayId);
+      const daySelected = Boolean(
+        schedule?.dayId && simpleState.days[schedule.dayId]
+      );
+      const selected = Boolean(state.selections[mission.id]);
+
+      const unavailableHelp = daySelected
+        ? ""
+        : `Select ${day?.label || schedule?.dayId || "the required day"} under Days You Expect to Play to include this mission.`;
+
+      return `
+        <label
+          class="basic-mission-check ${selected ? "selected" : ""} ${daySelected ? "" : "unavailable"}"
+          ${unavailableHelp ? `
+            data-tooltip-trigger
+            data-tooltip="${escapeAttribute(unavailableHelp)}"
+            tabindex="0"
+          ` : ""}
+        >
+          <span class="basic-mission-check-copy">
+            <span class="mission-title-with-help">
+              <strong>${mission.label}</strong>
+              ${mission.help ? tooltip(mission.help) : ""}
+            </span>
+
+            <small>
+              Available ${day?.label || schedule?.dayId}
+              · ${schedule.start}–${schedule.end} UTC
+            </small>
+          </span>
+
+          <input
+            type="checkbox"
+            data-simple-type-mission="${type.id}|${mission.id}"
+            ${selected ? "checked" : ""}
+            ${daySelected ? "" : "disabled"}
+            aria-label="I expect to complete ${mission.label}"
+          >
+        </label>`;
+    }).join("");
+
+    return `
+      <div class="subpanel basic-day-missions">
+        <div class="subpanel-heading">
+          <h3>${type.label}</h3>
+          ${tooltip(
+            type.simple?.help ||
+            type.help ||
+            "Choose the missions you expect to complete."
+          )}
+        </div>
+
+        <p class="basic-window-prompt">
+          Check the missions you expect to have enough focused playtime to complete.
+        </p>
+
+        <div class="basic-mission-check-list">${cards}</div>
+      </div>`;
+  }
+
+  function renderSimpleLongerMissionTypes(types) {
     if (!types.length) return "";
 
     const rows = types.map(type => {
       const state = simpleState.missionTypes[type.id];
       const maximum = typeMaximumReward(type);
+      const control = type.controls?.simple;
+
+      const input = control === "mission-count"
+        ? missionCountSelect(type, state.count ?? 0)
+        : rateSelect(
+            state.rate ?? 0,
+            `data-simple-type-rate="${type.id}"`,
+            completionRateOptions
+          );
 
       return `
         <label class="window-row">
@@ -588,17 +781,19 @@
               )}
             </span>
             <small class="group-maximum">
-              <span>${(type.missions || []).length} mission${(type.missions || []).length === 1 ? "" : "s"} per session</span>
+              <span>
+                ${(type.missions || []).length}
+                mission${(type.missions || []).length === 1 ? "" : "s"}
+                per session
+              </span>
               <span class="group-maximum-rewards">
                 ${rewardHtml(maximum, { compact: true })}
                 <em>maximum per session</em>
               </span>
             </small>
           </span>
-          ${rateSelect(
-            state.rate ?? 0,
-            `data-simple-type-rate="${type.id}"`
-          )}
+
+          ${input}
         </label>`;
     }).join("");
 
@@ -607,9 +802,10 @@
         <div class="subpanel-heading">
           <h3>Longer Missions</h3>
           ${tooltip(
-            "Each row is a mission type declared by the JSON model. The control estimates how much of that type you expect to complete."
+            "These missions stay available longer, but they still require specific objectives and focused progress rather than simply playing normally."
           )}
         </div>
+
         <div class="fixed-options">${rows}</div>
       </div>`;
   }
@@ -634,11 +830,21 @@
       type => type.controls?.simple === "window-frequency"
     );
 
-    const completionTypes = config.missionTypes.filter(
-      type => type.controls?.simple === "completion-frequency"
+    const dayMissionTypes = config.missionTypes.filter(
+      type => type.controls?.simple === "day-mission-checkboxes"
+    );
+
+    const longerMissionTypes = config.missionTypes.filter(
+      type =>
+        type.controls?.simple === "mission-count" ||
+        type.controls?.simple === "completion-frequency"
     );
 
     host.innerHTML = `
+      <div class="basic-note">
+        <strong>Plan for focused mission time.</strong> PTS missions require specific objectives. Count time you expect to actively work toward those objectives—not just time you expect to be playing.
+      </div>
+
       <div class="subpanel">
         <div class="subpanel-heading">
           <h3>PTS Sessions</h3>
@@ -649,8 +855,10 @@
         <div class="round-toggles">${sessionChecks}</div>
       </div>
 
+      ${renderSimpleDays()}
       ${windowTypes.map(renderSimpleWindowType).join("")}
-      ${renderSimpleCompletionTypes(completionTypes)}
+      ${dayMissionTypes.map(renderSimpleDayMissionType).join("")}
+      ${renderSimpleLongerMissionTypes(longerMissionTypes)}
     `;
 
     host.querySelectorAll("input, select").forEach(element => {
@@ -666,17 +874,36 @@
         element.checked;
     }
 
-    if (element.dataset.simpleTypeDay) {
-      const [typeId, dayId] =
-        element.dataset.simpleTypeDay.split("|");
-      simpleState.missionTypes[typeId].days[dayId] =
+    if (element.dataset.simpleDay) {
+      simpleState.days[element.dataset.simpleDay] =
         element.checked;
+
+      // Day-Long controls are conditional on the shared Basic day selection.
+      // Re-rendering hides/reveals them without discarding their saved state.
+      renderSimple();
+    }
+
+    if (element.dataset.simpleTypeMission) {
+      const [typeId, missionId] =
+        element.dataset.simpleTypeMission.split("|");
+
+      simpleState.missionTypes[typeId].selections[missionId] =
+        element.checked;
+
+      element
+        .closest(".basic-mission-check")
+        ?.classList.toggle("selected", element.checked);
     }
 
     if (element.dataset.simpleTypeWindow) {
       const [typeId, windowId] =
         element.dataset.simpleTypeWindow.split("|");
       simpleState.missionTypes[typeId].rates[windowId] =
+        Number(element.value);
+    }
+
+    if (element.dataset.simpleTypeCount) {
+      simpleState.missionTypes[element.dataset.simpleTypeCount].count =
         Number(element.value);
     }
 
@@ -759,8 +986,7 @@
     const selected = selectedAdvancedCount(source);
 
     return `<div class="mirror-summary">
-      <strong>Mirroring Session 1.</strong>
-      ${selected} planned mission${selected === 1 ? "" : "s"} will be used.
+      <strong>Session ${sessionIndex + 1} will mirror Session 1’s mission selections (${selected} selected).</strong>
       The Session ${sessionIndex + 1} login reward is included automatically.
       Uncheck <em>Same as Session 1</em> to restore its independent plan.
     </div>`;
@@ -1057,7 +1283,7 @@
   function updateResetButton() {
     const button = document.querySelector("#resetPlannerButton");
     const simple = mode === "simple";
-    const label = simple ? "Reset Simple plan" : "Reset Advanced plan";
+    const label = simple ? "Reset Basic plan" : "Reset Advanced plan";
     button.setAttribute("aria-label", label);
     button.setAttribute("title", label);
   }

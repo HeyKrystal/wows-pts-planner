@@ -89,20 +89,73 @@
       const typeState = state.missionTypes?.[type.id] || {};
 
       if (type.controls?.simple === "window-frequency") {
-        let completionsPerSession = 0;
+        let expectedCompletionsPerSession = 0;
 
         config.pts.days.forEach(day => {
-          if (!typeState.days?.[day.id]) return;
+          if (!state.days?.[day.id]) return;
 
           const windows = type.schedule?.windowsByDay?.[day.id] || [];
           windows.forEach(windowId => {
-            completionsPerSession += Number(typeState.rates?.[windowId] || 0);
+            expectedCompletionsPerSession +=
+              Number(typeState.rates?.[windowId] || 0);
           });
         });
 
-        const completions = completionsPerSession * activeSessions;
+        const expectedCompletions =
+          expectedCompletionsPerSession * activeSessions;
+
+        // Basic mode should never award a fraction of a mission. Pool the
+        // expectation across all selected Windowed opportunities, then round
+        // down once so the resulting rewards always correspond to a whole
+        // number of actually completable missions.
+        const completions = Math.floor(expectedCompletions);
+
         result.timedCompletions += completions;
         addReward(result, rewardForMission(type), completions);
+        return;
+      }
+
+      if (type.controls?.simple === "day-mission-checkboxes") {
+        (type.missions || []).forEach(mission => {
+          const dayId = mission.schedule?.dayId;
+
+          if (
+            !dayId ||
+            !state.days?.[dayId] ||
+            !typeState.selections?.[mission.id]
+          ) {
+            return;
+          }
+
+          addReward(
+            result,
+            rewardForMission(type, mission),
+            activeSessions
+          );
+        });
+
+        return;
+      }
+
+      if (type.controls?.simple === "mission-count") {
+        const requestedCount = Math.max(
+          0,
+          Math.min(
+            Math.floor(Number(typeState.count || 0)),
+            (type.missions || []).length
+          )
+        );
+
+        (type.missions || [])
+          .slice(0, requestedCount)
+          .forEach(mission => {
+            addReward(
+              result,
+              rewardForMission(type, mission),
+              activeSessions
+            );
+          });
+
         return;
       }
 

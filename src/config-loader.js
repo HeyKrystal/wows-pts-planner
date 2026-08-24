@@ -3,6 +3,8 @@
   const SIMPLE_CONTROLS = new Set([
     "window-frequency",
     "completion-frequency",
+    "day-mission-checkboxes",
+    "mission-count",
     "none"
   ]);
   const ADVANCED_CONTROLS = new Set(["calendar", "list"]);
@@ -170,6 +172,18 @@
           }
           missionIds.add(mission.id);
         });
+      }
+
+      if (type.controls?.simple === "mission-count") {
+        if (!missions.length) {
+          problems.push(`${typeLabel} mission-count control needs missions.`);
+        }
+
+        if (type.simple?.estimate !== "first-n-missions") {
+          problems.push(
+            `${typeLabel} mission-count currently requires simple.estimate = "first-n-missions".`
+          );
+        }
       }
 
       const schedule = type.schedule;

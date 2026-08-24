@@ -103,7 +103,7 @@
     {
       "id": "windowed",
       "label": "Windowed Missions",
-      "help": "The objective chain can vary, but the recurring reward package is the main time-sensitive PTS reward.",
+      "help": "Time-limited missions with specific objectives. Each completed window uses the same recurring reward package.",
       "reward": {
         "coal": 700,
         "freeXp": 5000,
@@ -115,7 +115,7 @@
         "advanced": "calendar"
       },
       "simple": {
-        "help": "Choose the PTS days you expect to play and how often you expect to catch each recurring mission window."
+        "help": "These missions expire when their window closes. Count only windows where you expect to have enough focused playtime to work toward the objective and finish it. Basic mode combines those expectations into a conservative whole-mission estimate."
       },
       "schedule": {
         "layout": "windows",
@@ -176,7 +176,7 @@
     {
       "id": "dayLong",
       "label": "Day-Long Missions",
-      "help": "Recurring missions that remain available for a full PTS day instead of only a four-hour timed window.",
+      "help": "Missions available for a full PTS mission day. They still require completing a specific objective before the mission expires.",
       "reward": {
         "coal": 1000,
         "freeXp": 2500,
@@ -184,11 +184,11 @@
         "communityTokens": 200
       },
       "controls": {
-        "simple": "completion-frequency",
+        "simple": "day-mission-checkboxes",
         "advanced": "list"
       },
       "simple": {
-        "help": "How often do you expect to complete the longer Day 2 and Day 3 missions? Exact objectives may vary between PTS updates."
+        "help": "Each Day-Long Mission is tied to a specific PTS day. Missions remain visible, but are disabled until you select the day on which they are available. Check the missions you expect to have enough focused playtime to complete."
       },
       "schedule": {
         "layout": "days",
@@ -224,13 +224,14 @@
     {
       "id": "roundLong",
       "label": "Round-Long Community Token Missions",
-      "help": "Longer missions whose objectives vary by update. In the standard model these reward Community Tokens and can be completed once per session.",
+      "help": "Longer session-wide missions whose objectives vary by update. They still require deliberate progress toward those objectives.",
       "controls": {
-        "simple": "completion-frequency",
+        "simple": "mission-count",
         "advanced": "list"
       },
       "simple": {
-        "help": "How much of the longer Community Token mission set do you expect to finish? Advanced mode lets you choose the individual missions."
+        "estimate": "first-n-missions",
+        "help": "Choose how many Round-Long missions you expect to complete. Exact objectives vary by update, so use Advanced mode if you want to choose specific missions."
       },
       "missions": [
         {
@@ -250,11 +251,11 @@
           }
         },
         {
-          "id": "ct-1000",
-          "label": "1,000 CT mission",
-          "help": "Usually tied to one of the major features being tested.",
+          "id": "ct-450",
+          "label": "450 CT mission",
+          "help": "Objective varies by update.",
           "reward": {
-            "communityTokens": 1000
+            "communityTokens": 450
           }
         },
         {
@@ -266,11 +267,11 @@
           }
         },
         {
-          "id": "ct-450",
-          "label": "450 CT mission",
-          "help": "Objective varies by update.",
+          "id": "ct-1000",
+          "label": "1,000 CT mission",
+          "help": "Usually tied to one of the major features being tested.",
           "reward": {
-            "communityTokens": 450
+            "communityTokens": 1000
           }
         },
         {
@@ -289,15 +290,15 @@
       false,
       false
     ],
+    "days": {
+      "thu": false,
+      "fri": false,
+      "sat": false,
+      "sun": false,
+      "mon": false
+    },
     "missionTypes": {
       "windowed": {
-        "days": {
-          "thu": false,
-          "fri": false,
-          "sat": false,
-          "sun": false,
-          "mon": false
-        },
         "rates": {
           "morning": 0,
           "afternoon": 0,
@@ -305,10 +306,13 @@
         }
       },
       "dayLong": {
-        "rate": 0
+        "selections": {
+          "day2": false,
+          "day3": false
+        }
       },
       "roundLong": {
-        "rate": 0
+        "count": 0
       }
     }
   },
