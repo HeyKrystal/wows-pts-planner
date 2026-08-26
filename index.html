@@ -152,40 +152,6 @@
       </aside>
     </main>
 
-
-    <details class="rules-panel">
-      <summary>
-        <span>How the Reward Model Works</span>
-        <small>What is stable, what varies, and what is intentionally excluded</small>
-        <span class="details-indicator" aria-hidden="true">
-          <span class="details-indicator-symbol">
-            <span class="details-indicator-arm details-indicator-arm-left"></span>
-            <span class="details-indicator-arm details-indicator-arm-right"></span>
-          </span>
-        </span>
-      </summary>
-      <div class="details-body model-explanation">
-        <div class="explanation-grid">
-          <section>
-            <h3>Stored in JSON</h3>
-            <p>Session count, days, UTC time windows, recurring mission types, reward packages, resource types, and planner controls all come from one data file. Maximum rewards are calculated from that data.</p>
-          </section>
-          <section>
-            <h3>Intentionally update-agnostic</h3>
-            <p>The exact objective might be Base XP one month and Dockyard progress the next. The planner cares about the recurring mission and its reward rather than reproducing every PTS article.</p>
-          </section>
-          <section>
-            <h3>First-time rewards excluded</h3>
-            <p>One-time introductory PTS bonuses are not part of the estimate. A new player may therefore receive a little more than this planner predicts.</p>
-          </section>
-          <section>
-            <h3>Maintenance path</h3>
-            <p>If Wargaming materially changes the schedule or recurring mission types, update the JSON model. The UI and calculator consume that structure without monthly HTML edits for ordinary schedule/reward changes.</p>
-          </section>
-        </div>
-      </div>
-    </details>
-
     <footer class="site-footer">
       <nav class="tool-dock" aria-label="Other World of Warships tools">
         <span class="tool-dock-label">Other WoWs tools ›</span>
