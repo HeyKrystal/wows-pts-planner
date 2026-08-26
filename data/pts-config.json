@@ -287,8 +287,8 @@
   ],
   "simpleDefaults": {
     "sessions": [
-      false,
-      false
+      true,
+      true
     ],
     "days": {
       "thu": false,
