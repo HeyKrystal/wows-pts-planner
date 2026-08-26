@@ -3,8 +3,49 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Plan World of Warships Public Test sessions and project the repeatable Live Server rewards your play plan can earn." />
-  <title>PTS Rewards Planner | World of Warships</title>
+
+  <title>PTS Rewards Planner | WoWs Public Test Rewards</title>
+  <meta name="description"
+    content="Free unofficial World of Warships PTS planner. Convert Public Test schedules to local time, estimate Live Server rewards, and plan exact mission completions." />
+  <meta name="robots" content="index,follow,max-image-preview:large" />
+  <link rel="canonical" href="https://pts.krstldv.com/" />
+
+  <link rel="icon" href="images/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="images/favicon-32x32.png" type="image/png" sizes="32x32" />
+  <link rel="icon" href="images/favicon.ico" sizes="any" />
+  <link rel="apple-touch-icon" href="images/apple-touch-icon.png" />
+
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f3edf7" />
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#130d18" />
+
+  <meta property="og:title" content="PTS Rewards Planner | WoWs Public Test Rewards" />
+  <meta property="og:description"
+    content="Plan World of Warships Public Test sessions, view mission windows in local time, and estimate repeatable Live Server rewards." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://pts.krstldv.com/" />
+  <meta property="og:site_name" content="PTS Rewards Planner" />
+  <meta property="og:image" content="https://pts.krstldv.com/images/social-preview.png" />
+  <meta property="og:image:secure_url" content="https://pts.krstldv.com/images/social-preview.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="PTS Rewards Planner logo beside local-time scheduling and reward-planning highlights." />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="PTS Rewards Planner | WoWs Public Test Rewards" />
+  <meta name="twitter:description" content="Plan World of Warships Public Test sessions, view mission windows in local time, and estimate repeatable Live Server rewards." />
+  <meta name="twitter:image" content="https://pts.krstldv.com/images/social-preview.png" />
+  <meta name="twitter:image:alt" content="PTS Rewards Planner logo beside local-time scheduling and reward-planning highlights." />
+
+  <script id="pts-planner-structured-data" type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {"@type":"WebSite","@id":"https://pts.krstldv.com/#website","name":"PTS Rewards Planner","alternateName":"World of Warships PTS Rewards Planner","url":"https://pts.krstldv.com/"},
+      {"@type":"WebApplication","@id":"https://pts.krstldv.com/#app","name":"PTS Rewards Planner","description":"Free unofficial World of Warships Public Test reward planner with local-time schedules, Basic estimates, Advanced mission planning, and repeatable Live Server reward totals.","url":"https://pts.krstldv.com/","image":"https://pts.krstldv.com/images/social-preview.png","applicationCategory":"UtilitiesApplication","operatingSystem":"Any","browserRequirements":"Requires JavaScript and a modern web browser.","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Person","name":"HeyKrystal","url":"https://github.com/HeyKrystal"},"inLanguage":"en-US"}
+    ]
+  }
+  </script>
 
   <script>
     (() => {
@@ -45,11 +86,6 @@
         <strong id="verifiedAgainst">Loading…</strong>
       </div>
     </header>
-
-    <div class="draft-toolbar" role="note">
-      <strong>Draft 21</strong>
-      <span>Resource artwork, schedule, rewards, mission types, and planner rendering strategies are driven by <code>data/pts-config.json</code>.</span>
-    </div>
 
     <div id="configError" class="error-panel" hidden></div>
 

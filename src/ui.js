@@ -343,6 +343,43 @@
     return `${local.localDay}→${local.endLocalDay}`;
   }
 
+  function localWindowSchedule(type, window) {
+    const representativeDay = config.pts.days.find(day =>
+      (type.schedule?.windowsByDay?.[day.id] || []).includes(window.id)
+    );
+
+    if (!representativeDay) {
+      return null;
+    }
+
+    return localSlot(representativeDay, window);
+  }
+
+  function localMissionSchedule(mission) {
+    const schedule = mission?.schedule;
+    if (!schedule?.dayId || !schedule.start || !schedule.end) {
+      return null;
+    }
+
+    const day = config.pts.days.find(
+      candidate => candidate.id === schedule.dayId
+    );
+
+    if (!day) {
+      return null;
+    }
+
+    const local = localSlot(day, {
+      start: schedule.start,
+      end: schedule.end
+    });
+
+    return {
+      ...local,
+      dayShift: localDayShift(local)
+    };
+  }
+
   function sharedDayScheduleRange(type) {
     if (type.schedule?.layout !== "days") {
       return null;
@@ -625,33 +662,66 @@
     return defaults;
   }
 
+  function missionTypeHeadingContent(
+    type,
+    {
+      headingTag = "h4",
+      help = type.help || ""
+    } = {}
+  ) {
+    const showSharedReward = Boolean(type.reward);
+
+    return `
+      <div class="mission-type-heading-content">
+        <div class="mission-type-title">
+          <${headingTag}>${type.label}</${headingTag}>
+          ${help ? tooltip(help) : ""}
+        </div>
+
+        ${showSharedReward ? `
+          <div class="type-shared-reward">
+            ${rewardHtml(type.reward, { compact: true })}
+            <em>each</em>
+          </div>` : ""}
+      </div>`;
+  }
+
   function renderSimpleWindowType(type) {
     const state = simpleState.missionTypes[type.id];
 
-    const windowRows = Calc.getDisplayWindows(config, type).map(window => `
-      <label class="window-row">
-        <span class="window-meta">
-          <span>${window.icon || "⚡"}</span>
-          <span>
-            <strong>${window.label}</strong>
-            <small>${window.start}–${window.end} UTC</small>
+    const windowRows = Calc.getDisplayWindows(config, type).map(window => {
+      const localSchedule = localWindowSchedule(type, window);
+
+      return `
+        <label class="window-row">
+          <span class="window-meta">
+            <span>${window.icon || "⚡"}</span>
+            <span>
+              <strong>${window.label}</strong>
+              <small>
+                ${localSchedule
+                  ? `${localSchedule.time} ${localSchedule.zone}`
+                  : `${window.start}–${window.end} UTC`}
+              </small>
+            </span>
           </span>
-        </span>
-        ${rateSelect(
-          state.rates[window.id] ?? 0,
-          `data-simple-type-window="${type.id}|${window.id}"`
-        )}
-      </label>`).join("");
+          ${rateSelect(
+            state.rates[window.id] ?? 0,
+            `data-simple-type-window="${type.id}|${window.id}"`
+          )}
+        </label>`;
+    }).join("");
 
     return `
       <div class="subpanel">
-        <div class="subpanel-heading">
-          <h3>${type.label}</h3>
-          ${tooltip(
-            type.simple?.help ||
-            type.help ||
-            "Choose how often you expect to complete this mission type."
-          )}
+        <div class="subpanel-heading mission-type-subpanel-heading">
+          ${missionTypeHeadingContent(type, {
+            headingTag: "h3",
+            help:
+              type.simple?.help ||
+              type.help ||
+              "Choose how often you expect to complete this mission type."
+          })}
         </div>
 
         <p class="basic-window-prompt">On the days you selected, how often do you expect to have enough focused playtime to complete a mission during each window?</p>
@@ -698,6 +768,7 @@
         schedule?.dayId && simpleState.days[schedule.dayId]
       );
       const selected = Boolean(state.selections[mission.id]);
+      const localSchedule = localMissionSchedule(mission);
 
       const unavailableHelp = daySelected
         ? ""
@@ -720,7 +791,11 @@
 
             <small>
               Available ${day?.label || schedule?.dayId}
-              · ${schedule.start}–${schedule.end} UTC
+              ${localSchedule ? `
+                · ${localSchedule.time}
+                ${localSchedule.zone}
+                ${localSchedule.dayShift ? `· ${localSchedule.dayShift}` : ""}
+              ` : ""}
             </small>
           </span>
 
@@ -736,13 +811,14 @@
 
     return `
       <div class="subpanel basic-day-missions">
-        <div class="subpanel-heading">
-          <h3>${type.label}</h3>
-          ${tooltip(
-            type.simple?.help ||
-            type.help ||
-            "Choose the missions you expect to complete."
-          )}
+        <div class="subpanel-heading mission-type-subpanel-heading">
+          ${missionTypeHeadingContent(type, {
+            headingTag: "h3",
+            help:
+              type.simple?.help ||
+              type.help ||
+              "Choose the missions you expect to complete."
+          })}
         </div>
 
         <p class="basic-window-prompt">
@@ -993,22 +1069,9 @@
   }
 
   function missionTypeHeader(type, count) {
-    const showSharedReward = Boolean(type.reward);
-
     return `
       <div class="advanced-section-label advanced-group-label mission-type-label">
-        <div class="mission-type-heading-content">
-          <div class="advanced-group-title">
-            <h4>${type.label}</h4>
-            ${type.help ? tooltip(type.help) : ""}
-          </div>
-
-          ${showSharedReward ? `
-            <div class="type-shared-reward">
-              ${rewardHtml(type.reward, { compact: true })}
-              <em>each</em>
-            </div>` : ""}
-        </div>
+        ${missionTypeHeadingContent(type)}
 
         <span>${count} mission${count === 1 ? "" : "s"}</span>
       </div>`;
@@ -1093,6 +1156,7 @@
   ) {
     const reward = Calc.rewardForMission(type, mission);
     const showMissionReward = Boolean(mission.reward);
+    const localSchedule = localMissionSchedule(mission);
 
     return `<label class="mission-check ${selected ? "selected" : ""}">
       <input
@@ -1107,10 +1171,12 @@
           ${mission.help ? tooltip(mission.help) : ""}
         </span>
 
-        ${mission.schedule?.start && mission.schedule?.end ? `
+        ${localSchedule ? `
           <small class="mission-schedule-meta">
             <span aria-hidden="true">${mission.schedule.icon || "🗓️"}</span>
-            ${mission.schedule.start}–${mission.schedule.end} UTC
+            ${localSchedule.time}
+            ${localSchedule.zone}
+            ${localSchedule.dayShift ? `· ${localSchedule.dayShift}` : ""}
           </small>` : ""}
       </span>
 

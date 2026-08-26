@@ -399,15 +399,24 @@ input:focus-visible,
 .mission-group-meta > small { display:block; margin-top:4px; line-height:1.4; }
 .group-maximum {
   display:flex !important;
-  align-items:flex-start;
+  align-items:center;
   flex-wrap:wrap;
   gap:5px 8px;
 }
+
+.group-maximum > span:first-child {
+  display:inline-flex;
+  align-items:center;
+  min-height:20px;
+  line-height:1.2;
+}
+
 .group-maximum-rewards {
   display:inline-flex;
   align-items:center;
   flex-wrap:wrap;
   gap:5px;
+  min-height:20px;
 }
 .group-maximum-rewards em {
   color:var(--muted);
@@ -576,17 +585,18 @@ input:focus-visible,
 }
 .advanced-group-label > div { min-width:0; }
 
-.advanced-group-title {
+.mission-type-title {
   display:flex;
   align-items:center;
   gap:6px;
   min-width:0;
 }
-.advanced-group-title h4 {
+.mission-type-title h4,
+.mission-type-title h3 {
   margin:0;
   flex:0 1 auto;
 }
-.advanced-group-title .tooltip {
+.mission-type-title .tooltip {
   flex:0 0 auto;
 }
 
@@ -602,14 +612,15 @@ input:focus-visible,
   display:flex;
   align-items:center;
   flex-wrap:wrap;
-  gap:5px 8px;
+  row-gap:5px;
+  column-gap:3px;
   color:var(--muted);
   font-size:.64rem;
   font-weight:800;
 }
 
 .type-shared-reward em {
-  margin-left:2px;
+  margin-left:0;
   color:var(--muted);
   font-size:.64rem;
   font-style:normal;
@@ -1168,4 +1179,24 @@ details[open] > summary .details-indicator-arm-right { transform:rotate(45deg); 
 .basic-mission-check.unavailable[data-tooltip-trigger]:focus-visible {
   outline:2px solid var(--accent);
   outline-offset:2px;
+}
+
+
+.mission-type-subpanel-heading {
+  align-items:flex-start;
+}
+
+.mission-type-subpanel-heading .mission-type-heading-content {
+  width:100%;
+}
+
+.mission-type-title {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-width:0;
+}
+
+.mission-type-title h3 {
+  font-size:.92rem;
 }
