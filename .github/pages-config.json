@@ -1,0 +1,20 @@
+{
+  "_comment": "PTS Rewards Planner Pages configuration. The shared deployment implementation lives in HeyKrystal/github-automation-library.",
+  "deploy": [
+    "index.html",
+    "sitemap.xml",
+    "robots.txt",
+    "CNAME",
+    ".nojekyll",
+    "styles",
+    "src",
+    "data",
+    "images"
+  ],
+  "socialPreview": {
+    "skipGeneration": false,
+    "watch": [
+      "images"
+    ]
+  }
+}

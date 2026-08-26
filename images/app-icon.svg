@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">PTS Rewards Planner</title>
+  <desc id="desc">A warship centered inside a violet clock face with coral timing accents.</desc>
+  <defs>
+    <linearGradient id="violet" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4b285e"/><stop offset="0.58" stop-color="#67346f"/><stop offset="1" stop-color="#7b3e76"/>
+    </linearGradient>
+    <linearGradient id="coral" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff9a7e"/><stop offset="1" stop-color="#ed696a"/>
+    </linearGradient>
+    <linearGradient id="ship" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fffaff"/><stop offset="1" stop-color="#e8ddec"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#1a0d20" flood-opacity="0.42"/>
+    </filter>
+  </defs>
+  <circle cx="256" cy="256" r="242" fill="url(#violet)"/>
+  <circle cx="256" cy="256" r="225" fill="none" stroke="url(#coral)" stroke-width="9"/>
+  <circle cx="256" cy="256" r="205" fill="none" stroke="#f7e9f7" stroke-width="2" opacity="0.24"/>
+  <g stroke="#f9eef9" stroke-width="10" stroke-linecap="round" opacity="0.72">
+    <path d="M256 64v24"/><path d="M448 256h-24"/><path d="M256 448v-24"/><path d="M64 256h24"/>
+  </g>
+  <g stroke="#f9eef9" stroke-width="6" stroke-linecap="round" opacity="0.32">
+    <path d="M352 90l-11 19"/><path d="M422 160l-19 11"/><path d="M422 352l-19-11"/><path d="M352 422l-11-19"/>
+    <path d="M160 422l11-19"/><path d="M90 352l19-11"/><path d="M90 160l19 11"/><path d="M160 90l11 19"/>
+  </g>
+  <g fill="none" stroke="url(#coral)" stroke-width="13" stroke-linecap="round">
+    <path d="M161 111a183 183 0 0 1 58-29"/><path d="M326 86a183 183 0 0 1 49 34"/><path d="M416 318a183 183 0 0 1-28 52"/>
+  </g>
+  <g stroke-linecap="round" filter="url(#shadow)">
+    <path d="M256 257L344 171" stroke="#ff8a72" stroke-width="13"/><path d="M256 257L205 153" stroke="#f8edf8" stroke-width="10" opacity="0.94"/>
+    <circle cx="256" cy="257" r="16" fill="#ff8a72" stroke="#fff7ff" stroke-width="5"/>
+  </g>
+  <g fill="url(#ship)" filter="url(#shadow)">
+    <path d="M135 300h242l-31 68H176z"/><path d="M159 300h196l-12 23H171z" fill="#cdb9d3"/>
+    <rect x="201" y="242" width="111" height="56" rx="9"/><rect x="226" y="207" width="61" height="38" rx="7"/>
+    <rect x="248" y="157" width="12" height="52" rx="6"/><path d="M260 164l54 25h-54z"/>
+    <rect x="162" y="277" width="42" height="13" rx="6"/><rect x="310" y="277" width="42" height="13" rx="6"/>
+  </g>
+  <g fill="none" stroke-linecap="round">
+    <path d="M108 394c48-26 83 25 132 0 48-25 84 25 132 0 17-9 34-11 51-5" stroke="#fff2fb" stroke-width="10" opacity="0.92"/>
+    <path d="M139 423c36-17 70 16 106 0 40-18 75 17 116 0" stroke="#ff8a72" stroke-width="8" opacity="0.86"/>
+  </g>
+</svg>
